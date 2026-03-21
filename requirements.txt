@@ -5,3 +5,9 @@ psycopg2-binary
 alembic
 python-dotenv
 pydantic[email]
+bcrypt==4.0.1
+pyjwt==2.8.0
+httpx==0.28.1
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dateutil==2.9.0

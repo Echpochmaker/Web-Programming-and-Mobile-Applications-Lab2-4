@@ -3,36 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="connect-src 'self' passport.yandex.ru mc.yandex.ru yandex.ru autofill.yandex.ru wss://mc.yandex.ru;">
     <title>Система тестирования</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <!-- Навигационная панель -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <h2>📚 Тесты</h2>
+            </div>
+            <div class="nav-user" id="navUser">
+                <!-- Здесь будет информация о пользователе -->
+                <div class="loading-spinner">Загрузка...</div>
+            </div>
+        </div>
+    </nav>
+
     <div class="container">
-        <h1>Управление тестами</h1>
+        <h1>Система тестирования</h1>
         
-        <!-- Форма создания нового теста -->
-        <div class="card">
-            <h2>Создать новый тест</h2>
-            <form id="createTestForm">
-                <div class="form-group">
-                    <label for="title">Название теста:</label>
-                    <input type="text" id="title" name="title" required>
+        <!-- Кнопка возврата к списку -->
+        <button id="backToTestsBtn" class="btn btn-secondary" style="display: none;">← К списку тестов</button>
+
+        <!-- Режим: список тестов -->
+        <div id="testsListMode">
+            <!-- Форма создания нового теста (только для авторизованных) -->
+            <div class="card" id="createTestCard" style="display: none;">
+                <h2>Создать новый тест</h2>
+                <form id="createTestForm">
+                    <div class="form-group">
+                        <label for="title">Название теста:</label>
+                        <input type="text" id="title" name="title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Описание:</label>
+                        <textarea id="description" name="description" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn">Создать тест</button>
+                </form>
+            </div>
+
+            <!-- Сообщение для неавторизованных -->
+            <div class="card" id="loginPromptCard" style="display: none;">
+                <h2>🔐 Требуется авторизация</h2>
+                <p>Чтобы создавать тесты, пожалуйста, войдите в систему.</p>
+                <button id="showLoginBtn" class="btn">Войти</button>
+                <button id="showRegisterBtn" class="btn btn-secondary">Регистрация</button>
+                <button onclick="yandexOAuth()" class="btn yandex-btn">Войти через Яндекс</button>
+            </div>
+
+            <!-- Список тестов -->
+            <div class="card">
+                <h2>Список тестов</h2>
+                <div id="testsList" class="tests-list">
+                    <p>Загрузка...</p>
                 </div>
-                <div class="form-group">
-                    <label for="description">Описание:</label>
-                    <textarea id="description" name="description" rows="3"></textarea>
-                </div>
-                <button type="submit" class="btn">Создать тест</button>
-            </form>
+            </div>
         </div>
 
-        <!-- Список тестов -->
-        <div class="card">
-            <h2>Список тестов</h2>
-            <div id="testsList" class="tests-list">
-                <!-- Здесь JavaScript будет отображать тесты -->
-                <p>Загрузка...</p>
+        <!-- Режим: редактирование конкретного теста -->
+        <div id="testEditMode" style="display: none;">
+            <div class="card">
+                <h2 id="editTestTitle">Редактирование теста</h2>
+                <form id="editTestForm">
+                    <div class="form-group">
+                        <label for="editTitle">Название теста:</label>
+                        <input type="text" id="editTitle" name="title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editDescription">Описание:</label>
+                        <textarea id="editDescription" name="description" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn">Сохранить изменения</button>
+                </form>
             </div>
+
+            <div class="card">
+                <h3>Вопросы и ответы</h3>
+                <div id="questionsContainer"></div>
+                <button id="addQuestionBtn" class="btn btn-secondary">+ Добавить вопрос</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальные окна для входа и регистрации -->
+    <div id="loginModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Вход</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Email или телефон:</label>
+                    <input type="text" id="loginInput" required>
+                </div>
+                <div class="form-group">
+                    <label>Пароль:</label>
+                    <input type="password" id="passwordInput" required>
+                </div>
+                <button type="submit" class="btn">Войти</button>
+            </form>
+            <p>Нет аккаунта? <a href="#" id="switchToRegister">Зарегистрироваться</a></p>
+            <p><a href="#" id="forgotPasswordLink">Забыли пароль?</a></p>
+            <p><button onclick="yandexOAuth()" class="yandex-link-btn">Войти через Яндекс</button></p>
+        </div>
+    </div>
+
+    <div id="registerModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Регистрация</h2>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="regEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Телефон (необязательно):</label>
+                    <input type="text" id="regPhone">
+                </div>
+                <div class="form-group">
+                    <label>Пароль:</label>
+                    <input type="password" id="regPassword" required>
+                </div>
+                <button type="submit" class="btn">Зарегистрироваться</button>
+            </form>
+            <p>Уже есть аккаунт? <a href="#" id="switchToLogin">Войти</a></p>
+        </div>
+    </div>
+
+    <!-- Модальное окно для восстановления пароля -->
+    <div id="forgotPasswordModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Восстановление пароля</h2>
+            <form id="forgotPasswordForm">
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="forgotEmail" required>
+                </div>
+                <button type="submit" class="btn">Отправить</button>
+            </form>
+            <div id="forgotMessage" class="message" style="margin-top: 10px;"></div>
         </div>
     </div>
 
