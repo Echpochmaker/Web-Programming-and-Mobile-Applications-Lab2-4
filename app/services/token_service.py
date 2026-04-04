@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from app.core.cache import cache
 from jose import jwt
 from sqlalchemy.orm import Session
 from app.models.user import User
@@ -7,6 +8,7 @@ import hashlib
 import secrets
 from typing import Optional, Tuple
 import os
+import uuid
 
 class TokenService:
     # Загружаем секреты из окружения
@@ -21,21 +23,22 @@ class TokenService:
         return hashlib.sha256(token.encode()).hexdigest()
     
     @staticmethod
-    def generate_access_token(user_id: int) -> Tuple[str, datetime]:
-        """Генерирует Access Token и возвращает его вместе с датой истечения"""
+    def generate_access_token(user_id: int) -> Tuple[str, datetime, str]:
+        """Генерирует Access Token с JTI и возвращает его вместе с датой истечения и JTI"""
+        jti = str(uuid.uuid4())
         expires_at = datetime.utcnow() + timedelta(minutes=TokenService.ACCESS_EXPIRATION)
         payload = {
             "sub": str(user_id),
             "exp": expires_at,
-            "type": "access"
+            "type": "access",
+            "jti": jti
         }
         token = jwt.encode(payload, TokenService.ACCESS_SECRET, algorithm="HS256")
-        return token, expires_at
+        return token, expires_at, jti
     
     @staticmethod
     def generate_refresh_token(user_id: int) -> Tuple[str, datetime]:
         """Генерирует Refresh Token"""
-        # Случайный токен (не JWT для возможности отзыва)
         token = secrets.token_urlsafe(32)
         expires_at = datetime.utcnow() + timedelta(days=TokenService.REFRESH_EXPIRATION)
         return token, expires_at
@@ -47,17 +50,22 @@ class TokenService:
             payload = jwt.decode(token, TokenService.ACCESS_SECRET, algorithms=["HS256"])
             return int(payload.get("sub"))
         except jwt.ExpiredSignatureError:
-            return None  # токен истек
+            return None
         except jwt.JWTError:
-            return None  # невалидный токен
+            return None
     
     @staticmethod
     def create_token_pair(db: Session, user_id: int, user_agent: str = None, ip: str = None) -> Tuple[str, str]:
-        """Создает пару токенов и сохраняет их в БД"""
-        access_token, access_expires = TokenService.generate_access_token(user_id)
+        """Создает пару токенов и сохраняет их в БД и Redis"""
+        access_token, access_expires, jti = TokenService.generate_access_token(user_id)
         refresh_token, refresh_expires = TokenService.generate_refresh_token(user_id)
         
-        # Хешируем токены для хранения
+        # Сохраняем JTI в Redis для проверки активных сессий
+        cache_key = f"testing:auth:user:{user_id}:access:{jti}"
+        cache.set(cache_key, "valid", ttl=TokenService.ACCESS_EXPIRATION * 60)
+        print(f"💾 JTI saved to Redis: {cache_key}")
+        
+        # Хешируем токены для хранения в БД
         token_record = Token(
             user_id=user_id,
             access_token_hash=TokenService.hash_token(access_token),
@@ -77,7 +85,6 @@ class TokenService:
         """Обновляет пару токенов по Refresh Token"""
         token_hash = TokenService.hash_token(refresh_token)
         
-        # Ищем токен в БД
         token_record = db.query(Token).filter(
             Token.refresh_token_hash == token_hash,
             Token.is_revoked == False,
@@ -87,13 +94,7 @@ class TokenService:
         if not token_record:
             return None
         
-        # Генерируем новые токены
-        return TokenService.create_token_pair(
-            db, 
-            token_record.user_id, 
-            user_agent, 
-            ip
-        )
+        return TokenService.create_token_pair(db, token_record.user_id, user_agent, ip)
     
     @staticmethod
     def revoke_tokens(db: Session, user_id: int, all_sessions: bool = False, current_token_hash: str = None):
@@ -101,8 +102,14 @@ class TokenService:
         query = db.query(Token).filter(Token.user_id == user_id, Token.is_revoked == False)
         
         if not all_sessions and current_token_hash:
-            # Отзываем только текущую сессию
             query = query.filter(Token.refresh_token_hash == current_token_hash)
         
         query.update({"is_revoked": True})
         db.commit()
+    
+    @staticmethod
+    def revoke_access_token(user_id: int, jti: str):
+        """Отзывает access токен по JTI"""
+        cache_key = f"testing:auth:user:{user_id}:access:{jti}"
+        cache.delete(cache_key)
+        print(f"🗑️ JTI revoked: {cache_key}")

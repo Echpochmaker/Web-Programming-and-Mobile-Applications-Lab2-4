@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="connect-src 'self' passport.yandex.ru mc.yandex.ru yandex.ru autofill.yandex.ru wss://mc.yandex.ru;">
-    <title>Система тестирования</title>
+    <title>Пройти тест</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/take-test.css">
 </head>
 <body>
     <!-- Навигационная панель -->
-    <nav class="navbar">
+<nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
                 <h2>📚 Тесты</h2>
@@ -27,73 +27,46 @@
             </div>
         </div>
     </nav>
-
     <div class="container">
-        <h1>Система тестирования</h1>
-        
-        <!-- Кнопка возврата к списку -->
-        <button id="backToTestsBtn" class="btn btn-secondary" style="display: none;">← К списку тестов</button>
+        <h1>Доступные тесты</h1>
 
-        <!-- Режим: список тестов -->
+        <!-- ========== РЕЖИМ: СПИСОК ТЕСТОВ ========== -->
         <div id="testsListMode">
-            <!-- Форма создания нового теста (только для авторизованных) -->
-            <div class="card" id="createTestCard" style="display: none;">
-                <h2>Создать новый тест</h2>
-                <form id="createTestForm">
-                    <div class="form-group">
-                        <label for="title">Название теста:</label>
-                        <input type="text" id="title" name="title" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="description">Описание:</label>
-                        <textarea id="description" name="description" rows="3"></textarea>
-                    </div>
-                    <button type="submit" class="btn">Создать тест</button>
-                </form>
-            </div>
-
-            <!-- Сообщение для неавторизованных -->
-            <div class="card" id="loginPromptCard" style="display: block;">
-                <h2>🔐 Требуется авторизация</h2>
-                <p>Чтобы создавать тесты, пожалуйста, войдите в систему.</p>
-                <p>Используйте кнопки в правом верхнем углу для входа или регистрации.</p>
-            </div>
-
-            <!-- Список тестов -->
             <div class="card">
-                <h2>Список тестов</h2>
-                <div id="testsList" class="tests-list">
+                <div class="filters">
+                    <input type="text" id="searchFilter" placeholder="Поиск по названию..." class="search-input">
+                </div>
+                <div id="availableTestsList" class="tests-list">
                     <p>Загрузка...</p>
                 </div>
             </div>
         </div>
 
-        <!-- Режим: редактирование конкретного теста -->
-        <div id="testEditMode" style="display: none;">
+        <!-- ========== РЕЖИМ: ПРОХОЖДЕНИЕ ТЕСТА ========== -->
+        <div id="testTakingMode" style="display: none;">
+            <button class="btn btn-secondary" onclick="goBackToList()" style="margin-bottom: 20px;">← К списку тестов</button>
             <div class="card">
-                <h2 id="editTestTitle">Редактирование теста</h2>
-                <form id="editTestForm">
-                    <div class="form-group">
-                        <label for="editTitle">Название теста:</label>
-                        <input type="text" id="editTitle" name="title" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editDescription">Описание:</label>
-                        <textarea id="editDescription" name="description" rows="3"></textarea>
-                    </div>
-                    <button type="submit" class="btn">Сохранить изменения</button>
-                </form>
-            </div>
-
-            <div class="card">
-                <h3>Вопросы и ответы</h3>
+                <h2 id="takingTestTitle">Прохождение теста</h2>
+                <div id="testProgress" class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
                 <div id="questionsContainer"></div>
-                <button id="addQuestionBtn" class="btn btn-secondary">+ Добавить вопрос</button>
+                <button id="finishTestBtn" class="btn" style="display: none;">Завершить тест</button>
+            </div>
+        </div>
+
+        <!-- ========== РЕЖИМ: РЕЗУЛЬТАТ ТЕСТА ========== -->
+        <div id="testResultMode" style="display: none;">
+            <div class="card">
+                <h2 id="resultTitle">Результат теста</h2>
+                <div id="resultScore" class="result-score"></div>
+                <div id="resultDetails"></div>
+                <button onclick="goBackToList()" class="btn">К списку тестов</button>
             </div>
         </div>
     </div>
 
-    <!-- Модальные окна -->
+    <!-- Модальные окна (копируем из index.html) -->
     <div id="loginModal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="close">&times;</span>
@@ -154,6 +127,6 @@
     </div>
 
     <script src="/static/auth.js"></script>
-    <script src="/static/script.js"></script>
+    <script src="/static/take-test.js"></script>
 </body>
 </html>

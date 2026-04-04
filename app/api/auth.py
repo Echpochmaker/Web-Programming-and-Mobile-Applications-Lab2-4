@@ -5,8 +5,10 @@ from datetime import datetime, timedelta
 import httpx
 import secrets
 import os
+from jose import jwt
 
 from app.core.database import get_db
+from app.core.cache import cache
 from app.core.auth import get_current_user, get_optional_user
 from app.services.user_service import UserService
 from app.services.token_service import TokenService
@@ -52,40 +54,6 @@ def clear_token_cookies(response: Response):
     "/register",
     status_code=201,
     summary="Регистрация нового пользователя",
-    description="Создает нового пользователя с указанным email и паролем. Email должен быть уникальным.",
-    responses={
-        201: {
-            "description": "Пользователь успешно создан",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "message": "User created successfully",
-                        "user_id": 1
-                    }
-                }
-            }
-        },
-        409: {
-            "description": "Email или телефон уже зарегистрированы",
-            "content": {
-                "application/json": {
-                    "examples": {
-                        "email_exists": {
-                            "summary": "Email уже существует",
-                            "value": {"detail": "Email already registered"}
-                        },
-                        "phone_exists": {
-                            "summary": "Телефон уже существует",
-                            "value": {"detail": "Phone already registered"}
-                        }
-                    }
-                }
-            }
-        },
-        422: {
-            "description": "Ошибка валидации данных"
-        }
-    }
 )
 async def register(
     user_data: UserRegister,
@@ -108,29 +76,6 @@ async def register(
 @router.post(
     "/login",
     summary="Вход пользователя",
-    description="Аутентификация пользователя по email/телефону и паролю. Устанавливает HttpOnly cookies с токенами.",
-    responses={
-        200: {
-            "description": "Успешный вход",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "message": "Login successful"
-                    }
-                }
-            }
-        },
-        401: {
-            "description": "Неверные учетные данные",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "Invalid credentials"
-                    }
-                }
-            }
-        }
-    }
 )
 async def login(
     user_data: UserLogin,
@@ -155,41 +100,15 @@ async def login(
     
     set_token_cookies(response, access_token, refresh_token)
     
+    # Инвалидация кеша профиля при новом входе
+    cache.delete(f"testing:users:profile:{user.id}")
+    print(f"🗑️ Profile cache invalidated for user {user.id}")
+    
     return {"message": "Login successful"}
 
 @router.post(
     "/refresh",
     summary="Обновление токенов",
-    description="Обновляет пару токенов (access и refresh) с использованием действующего refresh token из cookie.",
-    responses={
-        200: {
-            "description": "Токены успешно обновлены",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "message": "Tokens refreshed"
-                    }
-                }
-            }
-        },
-        401: {
-            "description": "Отсутствует или недействительный refresh token",
-            "content": {
-                "application/json": {
-                    "examples": {
-                        "no_token": {
-                            "summary": "Нет токена",
-                            "value": {"detail": "No refresh token"}
-                        },
-                        "invalid_token": {
-                            "summary": "Недействительный токен",
-                            "value": {"detail": "Invalid refresh token"}
-                        }
-                    }
-                }
-            }
-        }
-    }
 )
 async def refresh(
     request: Request,
@@ -220,61 +139,36 @@ async def refresh(
     "/whoami",
     response_model=AuthResponse,
     summary="Информация о текущем пользователе",
-    description="Возвращает данные аутентифицированного пользователя. Требует валидный access token.",
-    responses={
-        200: {
-            "description": "Данные пользователя",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "user": {
-                            "id": 1,
-                            "email": "user@example.com",
-                            "phone": "+79991234567",
-                            "created_at": "2026-03-18T12:00:00.000Z"
-                        },
-                        "message": "Authenticated"
-                    }
-                }
-            }
-        },
-        401: {
-            "description": "Не авторизован",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "Not authenticated"
-                    }
-                }
-            }
-        }
-    }
 )
 async def whoami(
     user: User = Depends(get_current_user)
 ):
-    """Информация о текущем пользователе"""
+    cache_key = f"testing:users:profile:{user.id}"
+    
+    # Проверяем кеш
+    cached = cache.get(cache_key)
+    if cached:
+        print(f"✅ Profile cache HIT: {cache_key}")
+        # Восстанавливаем объект из кеша
+        return AuthResponse(user=User(**cached), message="Authenticated (cached)")
+    
+    print(f"❌ Profile cache MISS: {cache_key}")
+    
+    # Сохраняем в кеш
+    user_dict = {
+        "id": user.id,
+        "email": user.email,
+        "phone": user.phone,
+        "created_at": user.created_at.isoformat() if user.created_at else None
+    }
+    cache.set(cache_key, user_dict, ttl=300)
+    print(f"💾 Profile saved to cache: {cache_key}")
+    
     return AuthResponse(user=user, message="Authenticated")
 
 @router.post(
     "/logout",
     summary="Выход из текущей сессии",
-    description="Завершает текущую сессию пользователя, удаляя refresh token из базы и очищая cookies.",
-    responses={
-        200: {
-            "description": "Успешный выход",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "message": "Logged out"
-                    }
-                }
-            }
-        },
-        401: {
-            "description": "Не авторизован"
-        }
-    }
 )
 async def logout(
     request: Request,
@@ -283,10 +177,19 @@ async def logout(
     db: Session = Depends(get_db)
 ):
     """Выход из текущей сессии"""
+    
+    # Удаляем ВСЕ JTI пользователя из Redis
+    cache.delete_pattern(f"testing:auth:user:{user.id}:access:*")
+    print(f"🗑️ All JTI revoked for user {user.id}")
+    
+    # Отзываем refresh токен в БД (текущую сессию)
     refresh_token = request.cookies.get("refresh_token")
     if refresh_token:
         token_hash = TokenService.hash_token(refresh_token)
         TokenService.revoke_tokens(db, user.id, all_sessions=False, current_token_hash=token_hash)
+    
+    # Инвалидация кеша профиля
+    cache.delete(f"testing:users:profile:{user.id}")
     
     clear_token_cookies(response)
     return {"message": "Logged out"}
@@ -294,22 +197,6 @@ async def logout(
 @router.post(
     "/logout-all",
     summary="Выход из всех сессий",
-    description="Завершает все сессии пользователя, отзывая все refresh токены и очищая cookies.",
-    responses={
-        200: {
-            "description": "Все сессии завершены",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "message": "All sessions terminated"
-                    }
-                }
-            }
-        },
-        401: {
-            "description": "Не авторизован"
-        }
-    }
 )
 async def logout_all(
     response: Response,
@@ -317,26 +204,23 @@ async def logout_all(
     db: Session = Depends(get_db)
 ):
     """Выход из всех сессий"""
+    
+    # Удаляем все JTI пользователя из Redis
+    cache.delete_pattern(f"testing:auth:user:{user.id}:access:*")
+    print(f"🗑️ All JTI revoked for user {user.id}")
+    
+    # Отзываем все refresh токены в БД
     TokenService.revoke_tokens(db, user.id, all_sessions=True)
+    
+    # Инвалидация кеша профиля
+    cache.delete(f"testing:users:profile:{user.id}")
+    
     clear_token_cookies(response)
     return {"message": "All sessions terminated"}
 
 @router.get(
     "/oauth/yandex",
     summary="Инициация входа через Яндекс",
-    description="Генерирует URL для перенаправления пользователя на страницу авторизации Яндекса.",
-    responses={
-        200: {
-            "description": "URL для авторизации",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "auth_url": "https://oauth.yandex.ru/authorize?response_type=code&client_id=...&redirect_uri=http://localhost:4200/auth/oauth/yandex/callback&state=..."
-                    }
-                }
-            }
-        }
-    }
 )
 async def yandex_oauth(request: Request):
     """Инициирует вход через Yandex"""
@@ -359,34 +243,6 @@ async def yandex_oauth(request: Request):
 @router.get(
     "/oauth/yandex/callback",
     summary="Обработка callback от Яндекса",
-    description="Обрабатывает код авторизации от Яндекса, создает пользователя и устанавливает cookies.",
-    responses={
-        200: {
-            "description": "Успешная авторизация через Яндекс",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "success": True,
-                        "message": "OAuth успешен",
-                        "user": {
-                            "id": 1,
-                            "email": "user@yandex.ru"
-                        }
-                    }
-                }
-            }
-        },
-        400: {
-            "description": "Ошибка при обмене кода",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "Invalid state"
-                    }
-                }
-            }
-        }
-    }
 )
 async def yandex_callback(
     code: str,
@@ -464,22 +320,6 @@ async def yandex_callback(
 @router.post(
     "/forgot-password",
     summary="Запрос на сброс пароля",
-    description="Отправляет запрос на сброс пароля. Токен для сброса выводится в консоль (вместо email).",
-    responses={
-        200: {
-            "description": "Запрос принят",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "message": "If the email exists, a reset link has been sent"
-                    }
-                }
-            }
-        },
-        400: {
-            "description": "Ошибка валидации"
-        }
-    }
 )
 async def forgot_password(
     request_data: ForgotPasswordRequest,
@@ -508,32 +348,6 @@ async def forgot_password(
 @router.post(
     "/reset-password",
     summary="Установка нового пароля",
-    description="Устанавливает новый пароль с использованием токена из запроса на сброс.",
-    responses={
-        200: {
-            "description": "Пароль успешно изменен",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "message": "Password reset successful"
-                    }
-                }
-            }
-        },
-        400: {
-            "description": "Недействительный или истекший токен",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "Invalid or expired token"
-                    }
-                }
-            }
-        },
-        422: {
-            "description": "Ошибка валидации (пароль слишком короткий)"
-        }
-    }
 )
 async def reset_password(
     request_data: ResetPasswordRequest,

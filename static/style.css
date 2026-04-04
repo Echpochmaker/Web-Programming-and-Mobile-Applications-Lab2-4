@@ -374,3 +374,684 @@ h1 {
 .yandex-link-btn:hover {
     color: #004499;
 }
+
+/* Навигация */
+.nav-links {
+    display: flex;
+    gap: 20px;
+    margin-left: 40px;
+}
+
+.nav-link {
+    color: white;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.nav-link:hover {
+    background-color: #444;
+}
+
+.nav-link.active {
+    background-color: #4CAF50;
+}
+
+.nav-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 10px 20px;
+}
+
+/* Навигационные ссылки */
+.nav-links {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.nav-link {
+    color: white;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.nav-link:hover {
+    background-color: rgba(255,255,255,0.2);
+}
+
+/* Страница результатов */
+.page-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.page-header h1 {
+    margin: 0;
+}
+
+.result-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 15px;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.result-card:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.result-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.result-stats {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.stat-icon {
+    font-size: 18px;
+}
+
+.stat-label {
+    color: #666;
+}
+
+.stat-value {
+    font-weight: 500;
+    color: #333;
+}
+
+.result-actions {
+    text-align: right;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.empty-state p {
+    margin-bottom: 20px;
+    font-size: 16px;
+}
+
+.score-circle {
+    background: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.score-details p {
+    margin: 8px 0;
+}
+
+.answer-review {
+    background: #fafafa;
+}
+.result-author {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
+/* ========== КАРТОЧКИ ТЕСТОВ (ДЛЯ ВКЛАДКИ "ПРОЙТИ ТЕСТ") ========== */
+
+/* Стили для карточек доступных тестов - такие же, как у результатов */
+.test-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 15px;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.test-card:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.test-card .test-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.test-card .test-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.test-card .test-meta {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #666;
+}
+
+.test-card .test-meta span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.test-card .test-attempts {
+    font-size: 12px;
+    color: #999;
+    background: #f5f5f5;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.test-card p {
+    margin: 10px 0;
+    color: #555;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.test-card .test-actions {
+    text-align: right;
+    margin-top: 10px;
+}
+
+.test-card .btn {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.test-card .btn:hover {
+    background-color: #45a049;
+}
+
+/* ========== СТИЛИЗОВАННЫЕ МОДАЛЬНЫЕ ОКНА ========== */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.modal-window {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    padding: 20px 20px 0 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.3s;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-body .form-group {
+    margin-bottom: 15px;
+}
+
+.modal-body label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #555;
+    font-size: 14px;
+}
+
+.modal-body input,
+.modal-body textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.3s;
+}
+
+.modal-body input:focus,
+.modal-body textarea:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+.modal-body textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.modal-footer {
+    padding: 15px 20px 20px 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid #eee;
+    background: white;
+    border-radius: 0 0 12px 12px;
+    align-items: flex-end;
+}
+
+
+.modal-footer .btn {
+    padding: 8px 20px;
+    min-width: 100px;
+    height: 38px;
+    line-height: 1.2;
+    text-align: center;
+    font-size: 14px;
+    border-radius: 6px;
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.modal-footer .btn-secondary {
+    background-color: #6c757d;
+}
+
+.modal-footer .btn-secondary:hover {
+    background-color: #5a6268;
+}
+/* Чекбокс в модальном окне */
+.modal-body .checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.modal-body .checkbox-group input {
+    width: auto;
+}
+
+.modal-body .checkbox-group label {
+    margin: 0;
+    font-weight: normal;
+}
+/* ========== ВИДЖЕТ-МЕНЮ (ВЫПАДАЮЩЕЕ МЕНЮ) ========== */
+
+/* Контейнер для виджета */
+.widget-container {
+    position: relative;
+    display: inline-block;
+}
+
+/* Кнопка виджета */
+.widget-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s ease;
+    color: white;
+}
+
+.widget-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Выпадающее меню */
+.widget-dropdown {
+    position: absolute;
+    top: 50px;
+    right: 0;
+    background: var(--bg-card);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px var(--shadow);
+    min-width: 200px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    z-index: 1000;
+    border: 1px solid var(--border-color);
+}
+
+.widget-dropdown.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* Пункты меню */
+.dropdown-item {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.dropdown-item:first-child {
+    border-radius: 12px 12px 0 0;
+}
+
+.dropdown-item:last-child {
+    border-radius: 0 0 12px 12px;
+}
+
+.dropdown-item:hover {
+    background: var(--border-color);
+}
+
+.dropdown-icon {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+}
+
+.dropdown-text {
+    flex: 1;
+    font-size: 14px;
+}
+
+/* Переключатель темы */
+.theme-switch {
+    margin-left: auto;
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+}
+
+.theme-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.theme-switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 20px;
+}
+
+.theme-switch-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .theme-switch-slider {
+    background-color: #4CAF50;
+}
+
+input:checked + .theme-switch-slider:before {
+    transform: translateX(20px);
+}
+
+/* Разделитель */
+.dropdown-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 0;
+}
+
+/* ========== ТЁМНАЯ ТЕМА ========== */
+
+/* Базовые переменные для светлой темы */
+:root {
+    --bg-primary: #f5f5f5;
+    --bg-card: white;
+    --text-primary: #333;
+    --text-secondary: #666;
+    --border-color: #ddd;
+    --shadow: rgba(0,0,0,0.1);
+    --navbar-bg: #333;
+    --navbar-text: white;
+    --input-bg: white;
+    --input-border: #ddd;
+}
+
+/* Тёмная тема */
+body.dark-theme {
+    --bg-primary: #1a1a2e;
+    --bg-card: #16213e;
+    --text-primary: #eee;
+    --text-secondary: #aaa;
+    --border-color: #2a2a4a;
+    --shadow: rgba(0,0,0,0.3);
+    --navbar-bg: #0f0f1a;
+    --navbar-text: #eee;
+    --input-bg: #1e1e3a;
+    --input-border: #2a2a4a;
+}
+
+/* Применение переменных */
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.card {
+    background: var(--bg-card);
+    box-shadow: 0 2px 10px var(--shadow);
+}
+
+.card h2, .card h3 {
+    color: var(--text-primary);
+}
+
+.navbar {
+    background-color: var(--navbar-bg);
+}
+
+.nav-logo h2 {
+    color: var(--navbar-text);
+}
+
+.nav-link {
+    color: var(--navbar-text);
+}
+
+.form-group input,
+.form-group textarea {
+    background-color: var(--input-bg);
+    border-color: var(--input-border);
+    color: var(--text-primary);
+}
+
+.form-group label {
+    color: var(--text-secondary);
+}
+
+.test-info h3 {
+    color: var(--text-primary);
+}
+
+.test-info p {
+    color: var(--text-secondary);
+}
+
+.test-item {
+    border-bottom-color: var(--border-color);
+}
+
+.empty-list, .error {
+    color: var(--text-secondary);
+}
+
+.pagination button {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.question-card {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+.modal-window {
+    background: var(--bg-card);
+}
+
+.modal-header {
+    border-bottom-color: var(--border-color);
+}
+
+.modal-header h3 {
+    color: var(--text-primary);
+}
+
+.modal-body label {
+    color: var(--text-secondary);
+}
+
+.modal-body input,
+.modal-body textarea {
+    background-color: var(--input-bg);
+    border-color: var(--input-border);
+    color: var(--text-primary);
+}
+
+.modal-footer {
+    border-top-color: var(--border-color);
+}
+
+.result-card,
+.test-card {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+.result-header h3,
+.test-card .test-header h3 {
+    color: var(--text-primary);
+}
+
+.result-stats .stat-label,
+.test-card .test-meta {
+    color: var(--text-secondary);
+}
+
+.stat-value {
+    color: var(--text-primary);
+}
+
+.result-score,
+.test-card .test-attempts {
+    background-color: var(--bg-primary);
+}
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.widget-container {
+    order: 2; /* Виджет будет справа */
+}
+
+.nav-user {
+    order: 1; /* Блок авторизации слева от виджета */
+}

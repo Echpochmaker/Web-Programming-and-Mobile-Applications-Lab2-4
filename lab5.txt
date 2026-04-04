@@ -1,0 +1,100 @@
+проверка лабы №5
+1. Подготовка
+
+docker ps
+
+
+2. регистрация нового пользователя
+
+curl -X POST http://localhost:4200/auth/register -H "Content-Type: application/json" -d "{\"email\":\"demo@example.com\",\"password\":\"demo123456\"}"
+
+
+входим
+
+curl -X POST http://localhost:4200/auth/login -H "Content-Type: application/json" -d "{\"login\":\"demo@example.com\",\"password\":\"demo123456\"}" -c cookies.txt
+
+
+3. Проверка JTI в Redis
+
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod KEYS testing:auth:user:*
+
+ожидаем: testing:auth:user:4:access:xxx-xxx-xxx
+
+JTI токена сохранён в Redis с TTL, равным времени жизни Access токена.
+
+4. кеширование профиля пользователя
+
+curl http://localhost:4200/auth/whoami -b cookies.txt
+
+ожидаем: "message":"Authenticated"
+
+далее
+
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod KEYS testing:users:profile:*
+
+ожидаем: testing:users:profile:4
+
+далее
+
+curl http://localhost:4200/auth/whoami -b cookies.txt
+
+ожидаем: "message":"Authenticated (cached)" — данные пришли из кеша
+
+
+Первый запрос — кеш пуст, данные загружены из БД и сохранены в Redis
+Второй запрос — данные взяты из Redis (быстрее)
+
+5. Кеширование списка тестов
+первый запрос
+
+curl "http://localhost:4200/tests/?page=1&limit=10" -b cookies.txt
+проверка Redis
+
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod KEYS testing:tests:list:*
+
+ожидаем: testing:tests:list:page:1:limit:10
+
+второй запрос
+
+curl "http://localhost:4200/tests/?page=1&limit=10" -b cookies.txt
+
+
+6. Инвалидация кеша при создании теста
+
+curl -X POST http://localhost:4200/tests/ -H "Content-Type: application/json" -b cookies.txt -d "{\"title\":\"Демо тест\",\"description\":\"Проверка инвалидации\"}"
+проверка Redis
+
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod KEYS testing:tests:list:*
+ожидаем → (empty array)
+
+
+7. Восстановление кеша
+
+curl "http://localhost:4200/tests/?page=1&limit=10" -b cookies.txt
+проверка Redis
+
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod KEYS testing:tests:list:*
+
+
+8. Отзыв токена при выходе (JTI)
+
+curl -X POST http://localhost:4200/auth/logout -b cookies.txt
+проверка Redis
+
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod KEYS testing:auth:user:*
+
+ожтдаем → (empty array)
+
+проверка доступа
+
+curl http://localhost:4200/auth/whoami -b cookies.txt
+
+ожидаем: {"detail":"Token revoked"}
+
+При выходе JTI удаляется из Redis, токен становится недействительным мгновенно, даже до истечения срока жизни JWT.
+
+9. Проверка TTL (время жизни кеша)
+
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod TTL testing:tests:list:page:1:limit:10
+
+Все ключи имеют TTL, данные автоматически удаляются из кеша через заданное время.

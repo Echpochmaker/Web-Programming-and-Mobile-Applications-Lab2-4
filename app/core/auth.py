@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from jose import jwt
 from typing import Optional
 import os
+from app.core.cache import cache
+from jose import jwt
 
 from app.core.database import get_db
 from app.services.user_service import UserService
@@ -37,9 +39,23 @@ async def get_current_user(
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    user_id = TokenService.verify_access_token(token)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    try:
+        payload = jwt.decode(token, TokenService.ACCESS_SECRET, algorithms=["HS256"])
+        user_id = int(payload.get("sub"))
+        jti = payload.get("jti")
+        
+        # Проверяем, что JTI существует в Redis (токен не отозван)
+        cache_key = f"testing:auth:user:{user_id}:access:{jti}"
+        if not cache.get(cache_key):
+            print(f"❌ Token revoked: {cache_key}")
+            raise HTTPException(status_code=401, detail="Token revoked")
+        
+        print(f"Token valid: {cache_key}")
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
     
     user = UserService.get_by_id(db, user_id)
     if not user:

@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     VK_CLIENT_SECRET: Optional[str] = None
     VK_CALLBACK_URL: Optional[str] = None
 
+    # Redis
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str = ""
+    CACHE_TTL_DEFAULT: int = 300
+
     @property
     def DATABASE_URL(self) -> str:
         return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"

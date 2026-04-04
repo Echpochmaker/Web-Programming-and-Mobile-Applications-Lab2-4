@@ -2,14 +2,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from app.api import tests, questions, answers, auth, results  # добавили results
+from app.api import tests, questions, answers, auth, results
+from app.core.cache import cache
 import os
 
-# Определяем окружение
 APP_ENV = os.getenv("APP_ENV", "development")
 
-# Создаем приложение с условной документацией
 app = FastAPI(
     title="Testing API",
     description="API для системы онлайн-тестирования с авторизацией",
@@ -28,24 +26,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключаем статические файлы
+# Подключаем статические файлы (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Настраиваем шаблоны
-templates = Jinja2Templates(directory="templates")
 
 # Подключаем API роутеры
 app.include_router(tests.router)
 app.include_router(questions.router)
 app.include_router(answers.router)
 app.include_router(auth.router)
-app.include_router(results.router)  # добавили
+app.include_router(results.router)
+
+# Функция для чтения HTML файлов
+def read_html(filename: str) -> str:
+    with open(f"templates/{filename}", "r", encoding="utf-8") as f:
+        return f.read()
+
+# ========== СТРАНИЦЫ (без Jinja2) ==========
 
 @app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+async def root():
+    """Главная страница"""
+    return HTMLResponse(content=read_html("index.html"))
 
-# Функция для настройки OpenAPI с security схемами
+@app.get("/take-test", response_class=HTMLResponse)
+async def take_test_page():
+    """Страница прохождения тестов"""
+    return HTMLResponse(content=read_html("take-test.html"))
+
+@app.get("/results", response_class=HTMLResponse)
+async def results_page():
+    """Страница результатов"""
+    return HTMLResponse(content=read_html("results.html"))
+
+# Тестовый эндпоинт для проверки кеша
+@app.get("/cache-test")
+async def cache_test():
+    cache.set("test:key", {"message": "Hello Redis"}, ttl=60)
+    value = cache.get("test:key")
+    return {"cached": value}
+
+# Функция для настройки OpenAPI
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -59,25 +79,21 @@ def custom_openapi():
         routes=app.routes,
     )
     
-    # Добавляем схемы безопасности
     openapi_schema["components"]["securitySchemes"] = {
         "bearerAuth": {
             "type": "http",
             "scheme": "bearer",
             "bearerFormat": "JWT",
-            "description": "Введите JWT токен в формате: Bearer <token>"
         },
         "cookieAuth": {
             "type": "apiKey",
             "in": "cookie",
             "name": "access_token",
-            "description": "HttpOnly cookie с access token (автоматически отправляется браузером)"
         }
     }
     
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
-# Применяем кастомную OpenAPI схему только если документация включена
 if APP_ENV != "production":
     app.openapi = custom_openapi

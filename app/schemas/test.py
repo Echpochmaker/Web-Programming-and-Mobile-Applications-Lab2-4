@@ -134,3 +134,16 @@ class PaginatedResponse(BaseModel):
             "total_pages": 5
         }
     )
+
+# Функция для сериализации теста (для кеширования)
+def serialize_test(test) -> dict:
+    """Преобразует объект Test в JSON-сериализуемый словарь"""
+    return {
+        "id": test.id,
+        "title": test.title,
+        "description": test.description,
+        "created_at": test.created_at.isoformat() if test.created_at else None,
+        "updated_at": test.updated_at.isoformat() if test.updated_at else None,
+        "owner_id": test.owner_id,
+        "questions": []  # вопросы не кешируем для простоты
+    }

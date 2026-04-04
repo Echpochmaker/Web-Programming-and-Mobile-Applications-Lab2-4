@@ -267,6 +267,7 @@ def get_my_results(
             })
         
         result_items.append({
+                    result_items.append({
             "id": item.id,
             "user_id": item.user_id,
             "test_id": item.test_id,
@@ -279,6 +280,7 @@ def get_my_results(
             "completed_at": item.completed_at,
             "status": item.status,
             "answers": answers
+        })
         })
     
     return {
