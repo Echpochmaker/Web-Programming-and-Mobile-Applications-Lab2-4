@@ -6,39 +6,40 @@ from typing import Optional, List
 
 class AnswerSubmission(BaseModel):
     """Отправка ответа на вопрос"""
-    result_id: int = Field(..., description="ID результата теста")
-    question_id: int = Field(..., description="ID вопроса")
-    selected_answer_id: int = Field(..., description="ID выбранного варианта ответа")
+    result_id: str = Field(..., description="ID результата теста")
+    question_id: str = Field(..., description="ID вопроса")
+    selected_answer_id: str = Field(..., description="ID выбранного варианта ответа")
 
 class UserAnswerResponse(BaseModel):
     """Ответ пользователя на вопрос (для результатов)"""
-    id: int
-    question_id: int
+    id: str
+    question_id: str
     question_text: str
-    selected_answer_id: Optional[int]
-    selected_answer_text: Optional[str]
-    is_correct: Optional[bool]
-    correct_answer_id: int
-    correct_answer_text: str
+    selected_answer_id: Optional[str] = None
+    selected_answer_text: Optional[str] = None
+    is_correct: Optional[bool] = None
+    correct_answer_id: Optional[str] = None
+    correct_answer_text: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 class TestResultCreate(BaseModel):
     """Начало прохождения теста"""
-    test_id: int
+    test_id: str
 
 class TestResultResponse(BaseModel):
     """Результат прохождения теста"""
-    id: int
-    user_id: int
-    test_id: int
+    id: str
+    user_id: str
+    test_id: str
     test_title: str
-    score: Optional[float]
+    author_email: Optional[str] = None
+    score: Optional[float] = None
     correct_answers: int
     total_questions: int
     started_at: datetime
-    completed_at: Optional[datetime]
+    completed_at: Optional[datetime] = None
     status: str
     answers: List[UserAnswerResponse] = []
 
@@ -57,12 +58,12 @@ class TestResultListResponse(BaseModel):
 
 class TestAvailableResponse(BaseModel):
     """Тест, доступный для прохождения"""
-    id: int
+    id: str
     title: str
-    description: Optional[str]
+    description: Optional[str] = None
     author_email: str
     questions_count: int
-    attempts_count: Optional[int]
+    attempts_count: Optional[int] = None
     user_attempts: int = 0
 
     class Config:

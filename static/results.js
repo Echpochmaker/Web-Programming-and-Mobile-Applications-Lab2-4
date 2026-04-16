@@ -44,6 +44,23 @@ function showUnauthorizedMessage() {
     }
 }
 
+// ---------- Вспомогательная функция для форматирования даты ----------
+function formatDate(dateString) {
+    if (!dateString) return 'Не завершён';
+    
+    const date = new Date(dateString);
+    // Добавляем 3 часа для Московского времени (UTC+3)
+    const moscowDate = new Date(date.getTime() + (3 * 60 * 60 * 1000));
+    
+    return moscowDate.toLocaleString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 // ---------- Загрузка результатов ----------
 async function loadResults(page = 1) {
     const resultsList = document.getElementById('resultsList');
@@ -79,14 +96,8 @@ async function loadResults(page = 1) {
 
         let html = '';
         data.data.forEach(result => {
-            const date = new Date(result.completed_at).toLocaleString('ru-RU', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            const scorePercent = Math.round(result.score);
+            const date = formatDate(result.completed_at);
+            const scorePercent = Math.round(result.score || 0);
             const scoreClass = scorePercent >= 70 ? 'result-good' : 'result-bad';
             
             html += `
@@ -116,7 +127,7 @@ async function loadResults(page = 1) {
                     </div>
                 </div>
                 <div class="result-actions">
-                    <button class="btn btn-secondary" onclick="viewResultDetail(${result.id})">Подробнее</button>
+                    <button class="btn btn-secondary" onclick="viewResultDetail('${result.id}')">Подробнее</button>
                 </div>
             </div>
         `;
@@ -164,15 +175,9 @@ async function viewResultDetail(resultId) {
 }
 
 function showResultModal(result) {
-    const scorePercent = Math.round(result.score);
+    const scorePercent = Math.round(result.score || 0);
     const scoreClass = scorePercent >= 70 ? 'result-good' : 'result-bad';
-    const date = new Date(result.completed_at).toLocaleString('ru-RU', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    const date = formatDate(result.completed_at);
     
     let modalHtml = `
         <div id="resultModal" class="modal" style="display: flex; align-items: center; justify-content: center;">
@@ -216,7 +221,7 @@ function showResultModal(result) {
                         </div>
                         <div style="margin: 5px 0;">
                             <span style="color: #4CAF50;">✅ Правильный ответ:</span>
-                            <span style="font-weight: 500;">${escapeHtml(answer.correct_answer_text)}</span>
+                            <span style="font-weight: 500;">${escapeHtml(answer.correct_answer_text || '')}</span>
                         </div>
                     </div>
                 </div>
@@ -264,7 +269,17 @@ function closeResultModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// ---------- Инициализация ----------
+// Защита от XSS
+function escapeHtml(unsafe) {
+    if (!unsafe) return unsafe;
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // ---------- Инициализация ----------
 async function init() {
     console.log('Results page initialized');
@@ -293,19 +308,13 @@ async function init() {
             }
         });
         
-        // Также проверяем через 1 секунду (на случай, если событие уже произошло)
+        // Также проверяем через 1 секунду
         setTimeout(async () => {
-            if (window.currentUser && !document.getElementById('resultsList').innerHTML.includes('результат')) {
+            if (window.currentUser && !document.getElementById('resultsList')?.innerHTML.includes('результат')) {
                 console.log('Delayed check: user found, loading results');
                 await loadResultsIfAuthenticated();
             }
         }, 1000);
-    }
-    
-    // Закрытие модального окна по крестику
-    const closeBtn = document.querySelector('#resultModal .close');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeResultModal);
     }
     
     // Закрытие по клику вне окна
@@ -315,17 +324,6 @@ async function init() {
             closeResultModal();
         }
     });
-}
-
-// Защита от XSS
-function escapeHtml(unsafe) {
-    if (!unsafe) return unsafe;
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
 }
 
 // Запуск после загрузки страницы

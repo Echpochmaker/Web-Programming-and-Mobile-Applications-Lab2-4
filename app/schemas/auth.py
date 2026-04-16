@@ -49,7 +49,7 @@ class UserLogin(BaseModel):
 
 # Ответ с информацией о пользователе (без чувствительных данных)
 class UserResponse(BaseModel):
-    id: str = Field(..., description="Уникальный идентификатор пользователя")  # было int, стало str
+    id: str = Field(..., description="Уникальный идентификатор пользователя")  
     email: Optional[str] = Field(None, description="Email пользователя")
     phone: Optional[str] = Field(None, description="Телефон пользователя")
     created_at: datetime = Field(..., description="Дата регистрации")

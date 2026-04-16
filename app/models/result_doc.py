@@ -1,9 +1,12 @@
 from beanie import Document
 from datetime import datetime
 from typing import Optional, List
-from pydantic import Field
+from pydantic import Field, BaseModel
+from bson import ObjectId
 
-class UserAnswer(Document):
+# Встроенный документ для ответов пользователя
+class UserAnswer(BaseModel):
+    id: Optional[ObjectId] = Field(default_factory=ObjectId)
     question_id: str
     question_text: str
     selected_answer_id: Optional[str] = None
@@ -12,10 +15,10 @@ class UserAnswer(Document):
     correct_answer_id: Optional[str] = None
     correct_answer_text: Optional[str] = None
     
-    class Settings:
-        name = "user_answers"
-        use_state_management = True
+    class Config:
+        arbitrary_types_allowed = True
 
+# Основной документ для результатов теста
 class TestResult(Document):
     user_id: str
     test_id: str

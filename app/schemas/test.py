@@ -12,7 +12,7 @@ class AnswerOptionCreate(AnswerOptionBase):
 
 class AnswerOptionResponse(AnswerOptionBase):
     id: str = Field(..., description="Уникальный идентификатор варианта ответа")
-    created_at: datetime = Field(..., description="Дата создания")
+    created_at: Optional[datetime] = Field(None, description="Дата создания")
     updated_at: Optional[datetime] = Field(None, description="Дата последнего обновления")
 
     class Config:
@@ -28,7 +28,7 @@ class QuestionCreate(QuestionBase):
 class QuestionResponse(QuestionBase):
     id: str = Field(..., description="Уникальный идентификатор вопроса")
     test_id: str = Field(..., description="ID теста, к которому относится вопрос")
-    created_at: datetime = Field(..., description="Дата создания")
+    created_at: Optional[datetime] = Field(None, description="Дата создания")
     updated_at: Optional[datetime] = Field(None, description="Дата последнего обновления")
     answers: List[AnswerOptionResponse] = Field([], description="Список вариантов ответа")
 
@@ -48,11 +48,11 @@ class TestUpdate(BaseModel):
     description: Optional[str] = Field(None, description="Новое описание теста", example="Обновленное описание")
 
 class TestResponse(TestBase):
-    id: str  # было int, стало str
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    questions: List[QuestionResponse] = []
-    owner_id: str  # было Optional[int], стало str
+    id: str = Field(..., description="Уникальный идентификатор теста")
+    owner_id: str = Field(..., description="ID владельца теста")
+    created_at: Optional[datetime] = Field(None, description="Дата создания")
+    updated_at: Optional[datetime] = Field(None, description="Дата последнего обновления")
+    questions: List[QuestionResponse] = Field([], description="Список вопросов теста")
 
     class Config:
         from_attributes = True
@@ -60,15 +60,3 @@ class TestResponse(TestBase):
 class PaginatedResponse(BaseModel):
     data: List[TestResponse] = Field(..., description="Массив тестов на текущей странице")
     meta: dict = Field(..., description="Мета-информация о пагинации")
-
-# Функция для сериализации теста
-def serialize_test(test) -> dict:
-    return {
-        "id": str(test.id),
-        "title": test.title,
-        "description": test.description,
-        "created_at": test.created_at.isoformat() if test.created_at else None,
-        "updated_at": test.updated_at.isoformat() if test.updated_at else None,
-        "owner_id": str(test.owner_id),
-        "questions": []
-    }

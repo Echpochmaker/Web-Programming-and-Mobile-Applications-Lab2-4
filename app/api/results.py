@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List
+from typing import Optional
 from app.core.auth import get_current_user
 from app.models.user_doc import User
-from app.services.result_service import ResultService
+from app.services.result_service import result_service
 
 router = APIRouter(prefix="/results", tags=["results"])
 
@@ -10,9 +10,15 @@ router = APIRouter(prefix="/results", tags=["results"])
 async def get_available_tests(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
+    search: Optional[str] = Query(None, description="Поиск по названию теста"),
     current_user: User = Depends(get_current_user)
 ):
-    items, total = await ResultService.get_available_tests(str(current_user.id), page, limit)
+    items, total = await result_service.get_available_tests(
+        str(current_user.id), 
+        page, 
+        limit,
+        search
+    )
     total_pages = (total + limit - 1) // limit
     return {
         "data": items,
@@ -29,7 +35,7 @@ async def start_test(
     test_id: str,
     current_user: User = Depends(get_current_user)
 ):
-    result = await ResultService.start_test(test_id, str(current_user.id))
+    result = await result_service.start_test(test_id, str(current_user.id))
     if not result:
         raise HTTPException(status_code=400, detail="Failed to start test")
     
@@ -40,7 +46,7 @@ async def submit_answer(
     answer_data: dict,
     current_user: User = Depends(get_current_user)
 ):
-    answer = await ResultService.submit_answer(answer_data)
+    answer = await result_service.submit_answer(answer_data)
     if not answer:
         raise HTTPException(status_code=400, detail="Failed to save answer")
     return answer
@@ -50,7 +56,7 @@ async def finish_test(
     result_id: str,
     current_user: User = Depends(get_current_user)
 ):
-    result = await ResultService.finish_test(result_id)
+    result = await result_service.finish_test(result_id)
     if not result:
         raise HTTPException(status_code=400, detail="Failed to finish test")
     return result
@@ -60,7 +66,7 @@ async def get_result(
     result_id: str,
     current_user: User = Depends(get_current_user)
 ):
-    result = await ResultService.get_result(result_id, str(current_user.id))
+    result = await result_service.get_result(result_id, str(current_user.id))
     if not result:
         raise HTTPException(status_code=404, detail="Result not found")
     return result
@@ -71,7 +77,7 @@ async def get_my_results(
     limit: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user)
 ):
-    items, total = await ResultService.get_user_results(str(current_user.id), page, limit)
+    items, total = await result_service.get_user_results(str(current_user.id), page, limit)
     total_pages = (total + limit - 1) // limit
     
     return {

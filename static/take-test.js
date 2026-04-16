@@ -23,14 +23,27 @@ const resultTitle = document.getElementById('resultTitle');
 const resultScore = document.getElementById('resultScore');
 const resultDetails = document.getElementById('resultDetails');
 
+// ---------- Форматирование даты ----------
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const moscowDate = new Date(date.getTime() + (3 * 60 * 60 * 1000));
+    return moscowDate.toLocaleString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 // ========== СПИСОК ДОСТУПНЫХ ТЕСТОВ ==========
 
-// ---------- Загрузка доступных тестов ----------
 async function loadAvailableTests(page = 1, search = '') {
     if (!availableTestsList) return;
     
     try {
-        availableTestsList.innerHTML = '<p>Загрузка...</p>';
+        availableTestsList.innerHTML = '<div class="loading-spinner">Загрузка...</div>';
         
         if (!window.currentUser) {
             availableTestsList.innerHTML = '<p class="empty-list">Войдите чтобы увидеть тесты</p>';
@@ -42,9 +55,7 @@ async function loadAvailableTests(page = 1, search = '') {
             url += `&search=${encodeURIComponent(search)}`;
         }
         
-        const response = await fetch(url, {
-            credentials: 'include'
-        });
+        const response = await fetch(url, { credentials: 'include' });
         
         if (!response.ok) throw new Error('Ошибка загрузки');
         
@@ -64,53 +75,56 @@ async function loadAvailableTests(page = 1, search = '') {
                         <span class="test-attempts">Попыток: ${test.user_attempts || 0}</span>
                     </div>
                     <div class="test-meta">
-                        <span>Автор: ${escapeHtml(test.author_email)}</span>
-                        <span>Вопросов: ${test.questions_count}</span>
+                        <span>👤 Автор: ${escapeHtml(test.author_email)}</span>
+                        <span>📝 Вопросов: ${test.questions_count}</span>
                     </div>
                     <p>${escapeHtml(test.description || '')}</p>
                     <div class="test-actions">
-                        <button class="btn" onclick="startTest(${test.id})">Начать тест</button>
+                        <button class="btn" onclick="startTest('${test.id}')">Начать тест</button>
                     </div>
                 </div>
             `;
         });
 
+        // Пагинация
         const totalPages = Math.ceil(data.meta.total / limit);
-        html += '<div class="pagination">';
-        if (page > 1) {
-            html += `<button onclick="loadAvailableTests(${page - 1})">Предыдущая</button>`;
+        if (totalPages > 1) {
+            html += '<div class="pagination">';
+            if (page > 1) {
+                html += `<button class="btn" onclick="loadAvailableTests(${page - 1}, '${search}')">← Предыдущая</button>`;
+            }
+            html += `<span>Страница ${page} из ${totalPages}</span>`;
+            if (page < totalPages) {
+                html += `<button class="btn" onclick="loadAvailableTests(${page + 1}, '${search}')">Следующая →</button>`;
+            }
+            html += '</div>';
         }
-        html += `<span>Страница ${page} из ${totalPages}</span>`;
-        if (page < totalPages) {
-            html += `<button onclick="loadAvailableTests(${page + 1})">Следующая</button>`;
-        }
-        html += '</div>';
 
         availableTestsList.innerHTML = html;
+        currentPage = page;
         
     } catch (error) {
-        availableTestsList.innerHTML = `<p class="error">Ошибка: ${error.message}</p>`;
+        console.error('Ошибка загрузки тестов:', error);
+        availableTestsList.innerHTML = `<p class="error">❌ Ошибка: ${error.message}</p>`;
     }
 }
 
-// ---------- Поиск с debounce ----------
+// Поиск с debounce
 if (searchFilter) {
     searchFilter.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            loadAvailableTests(1, e.target.value);
-        }, 300);
+        searchTimeout = setTimeout(() => loadAvailableTests(1, e.target.value), 300);
     });
 }
 
 // ========== ПРОХОЖДЕНИЕ ТЕСТА ==========
 
-// ---------- Начать тест ----------
 window.startTest = async function(testId) {
+    console.log('startTest called with ID:', testId);
+    
     try {
         if (!window.currentUser) {
             alert('Для прохождения тестов необходимо авторизоваться');
-            window.showLoginModal();
             return;
         }
         
@@ -125,17 +139,7 @@ window.startTest = async function(testId) {
         }
         
         const result = await response.json();
-        
-        if (!result.questions || result.questions.length === 0) {
-            const questionsResponse = await fetch(`${API_BASE}/${testId}/questions`, {
-                credentials: 'include'
-            });
-            if (questionsResponse.ok) {
-                result.questions = await questionsResponse.json();
-            } else {
-                result.questions = [];
-            }
-        }
+        console.log('Test started:', result);
         
         currentResultId = result.id;
         currentTakingTest = result;
@@ -143,12 +147,13 @@ window.startTest = async function(testId) {
         
         showTestTakingMode(result);
     } catch (error) {
+        console.error('Error starting test:', error);
         alert('Ошибка: ' + error.message);
     }
 };
 
 function showTestTakingMode(test) {
-    if (!testTakingMode || !testResultMode || !takingTestTitle || !questionsContainer || !finishTestBtn) return;
+    console.log('Showing test taking mode');
     
     document.getElementById('testsListMode').style.display = 'none';
     testTakingMode.style.display = 'block';
@@ -162,55 +167,47 @@ function showTestTakingMode(test) {
         return;
     }
     
-    renderQuestionsForTaking(test.questions);
-    updateProgress();
-}
-
-function renderQuestionsForTaking(questions) {
-    if (!questionsContainer) return;
-    
     let html = '';
-    
-    questions.forEach((q, index) => {
-        const answers = q.answers || [];
+    test.questions.forEach((q, i) => {
         const savedAnswer = userAnswers[q.id];
         
         html += `
-            <div class="question-card" data-question-id="${q.id}">
-                <h4>Вопрос ${index + 1}:</h4>
-                <p>${escapeHtml(q.text)}</p>
-                <div class="answers-list">
+            <div class="question-card">
+                <h4>Вопрос ${i + 1}: ${escapeHtml(q.text)}</h4>
         `;
         
-        if (answers.length === 0) {
-            html += `<p class="empty-list">Нет вариантов ответа</p>`;
-        } else {
-            answers.forEach(a => {
+        if (q.answers && q.answers.length > 0) {
+            html += '<div class="answers-list">';
+            q.answers.forEach(a => {
                 const checked = savedAnswer === a.id ? 'checked' : '';
                 html += `
                     <div class="answer-item">
                         <input type="radio" 
-                               name="question_${q.id}" 
+                               name="q_${q.id}" 
                                value="${a.id}" 
                                ${checked}
-                               onchange="saveAnswer(${q.id}, ${a.id})">
+                               onchange="saveAnswer('${q.id}', '${a.id}')">
                         <span>${escapeHtml(a.text)}</span>
                     </div>
                 `;
             });
+            html += '</div>';
+        } else {
+            html += '<p class="empty-list">Нет вариантов ответа</p>';
         }
         
-        html += `</div></div>`;
+        html += '</div>';
     });
     
     questionsContainer.innerHTML = html;
+    finishTestBtn.style.display = 'block';
     
-    if (finishTestBtn) {
-        finishTestBtn.style.display = questions.length > 0 ? 'block' : 'none';
-    }
+    updateProgress();
 }
 
 window.saveAnswer = function(questionId, answerId) {
+    console.log('saveAnswer:', questionId, answerId);
+    
     userAnswers[questionId] = answerId;
     updateProgress();
     
@@ -223,30 +220,44 @@ window.saveAnswer = function(questionId, answerId) {
             selected_answer_id: answerId
         }),
         credentials: 'include'
-    }).catch(error => console.error('Ошибка сохранения ответа:', error));
+    }).then(response => {
+        if (!response.ok) {
+            console.error('Ошибка сохранения ответа');
+        } else {
+            console.log('Ответ сохранен на сервере');
+        }
+    }).catch(error => {
+        console.error('Ошибка сохранения ответа:', error);
+    });
 };
 
 function updateProgress() {
     if (!currentTakingTest || !progressFill) return;
     
-    const total = currentTakingTest.questions.length;
+    const total = currentTakingTest.total_questions || currentTakingTest.questions?.length || 0;
     const answered = Object.keys(userAnswers).length;
     const percent = total > 0 ? (answered / total) * 100 : 0;
     
     progressFill.style.width = `${percent}%`;
+    progressFill.textContent = `${Math.round(percent)}%`;
 }
 
 if (finishTestBtn) {
     finishTestBtn.addEventListener('click', async () => {
-        if (!currentResultId || !currentTakingTest) return;
+        if (!currentResultId) return;
         
-        if (Object.keys(userAnswers).length < currentTakingTest.questions.length) {
-            if (!confirm('Вы ответили не на все вопросы. Всё равно завершить?')) {
-                return;
-            }
+        const total = currentTakingTest.total_questions || currentTakingTest.questions?.length || 0;
+        const answered = Object.keys(userAnswers).length;
+        
+        if (answered < total) {
+            const confirmFinish = confirm(`Вы ответили на ${answered} из ${total} вопросов. Завершить тест?`);
+            if (!confirmFinish) return;
         }
         
         try {
+            finishTestBtn.disabled = true;
+            finishTestBtn.textContent = 'Завершение...';
+            
             const response = await fetch(`${RESULTS_API}/finish/${currentResultId}`, {
                 method: 'POST',
                 credentials: 'include'
@@ -255,70 +266,102 @@ if (finishTestBtn) {
             if (!response.ok) throw new Error('Ошибка завершения теста');
             
             const result = await response.json();
+            console.log('Test finished:', result);
+            
             showTestResult(result);
         } catch (error) {
+            console.error('Error finishing test:', error);
             alert('Ошибка: ' + error.message);
+            finishTestBtn.disabled = false;
+            finishTestBtn.textContent = 'Завершить тест';
         }
     });
 }
 
 function showTestResult(result) {
-    if (!testTakingMode || !testResultMode || !resultTitle || !resultScore || !resultDetails) return;
-    
     testTakingMode.style.display = 'none';
     testResultMode.style.display = 'block';
     
-    const scorePercent = Math.round(result.score);
+    const scorePercent = Math.round(result.score || 0);
     const scoreClass = scorePercent >= 70 ? 'result-good' : 'result-bad';
     
     resultTitle.textContent = `Результат: ${result.test_title}`;
     resultScore.innerHTML = `
-        <div class="${scoreClass}">${scorePercent}%</div>
-        <div>Правильных ответов: ${result.correct_answers} из ${result.total_questions}</div>
+        <div class="score-circle ${scoreClass}">
+            <span>${scorePercent}%</span>
+        </div>
+        <div class="score-details">
+            <p>✅ Правильных ответов: ${result.correct_answers} из ${result.total_questions}</p>
+            <p>📊 Статус: ${scorePercent >= 70 ? 'Пройден' : 'Не пройден'}</p>
+        </div>
     `;
     
-    let detailsHtml = '<h3>Детали:</h3>';
+    let detailsHtml = '<h3>📝 Детали ответов:</h3>';
+    
     if (result.answers && result.answers.length > 0) {
-        result.answers.forEach((a, index) => {
+        result.answers.forEach((a, i) => {
             const answerClass = a.is_correct ? 'answer-correct' : 'answer-wrong';
+            const icon = a.is_correct ? '✅' : '❌';
+            
             detailsHtml += `
                 <div class="answer-review ${answerClass}">
-                    <p><strong>Вопрос ${index + 1}:</strong> ${escapeHtml(a.question_text)}</p>
-                    <p>Ваш ответ: ${escapeHtml(a.selected_answer_text || 'Не отвечен')}</p>
-                    <p>Правильный ответ: ${escapeHtml(a.correct_answer_text)}</p>
+                    <p><strong>${icon} Вопрос ${i + 1}:</strong> ${escapeHtml(a.question_text)}</p>
+                    <p>📌 Ваш ответ: ${escapeHtml(a.selected_answer_text || 'Не отвечен')}</p>
+                    <p>✓ Правильный ответ: ${escapeHtml(a.correct_answer_text || '')}</p>
                 </div>
             `;
         });
     } else {
-        detailsHtml += '<p>Нет данных об ответах</p>';
+        detailsHtml += '<p class="empty-list">Нет данных об ответах</p>';
     }
     
     resultDetails.innerHTML = detailsHtml;
 }
 
-// ---------- Возврат к списку ----------
 window.goBackToList = function() {
     document.getElementById('testsListMode').style.display = 'block';
-    if (testTakingMode) testTakingMode.style.display = 'none';
-    if (testResultMode) testResultMode.style.display = 'none';
-    loadAvailableTests(1);
+    testTakingMode.style.display = 'none';
+    testResultMode.style.display = 'none';
+    
+    currentResultId = null;
+    currentTakingTest = null;
+    userAnswers = {};
+    
+    if (finishTestBtn) {
+        finishTestBtn.disabled = false;
+        finishTestBtn.textContent = 'Завершить тест';
+    }
+    
+    loadAvailableTests(currentPage);
 };
 
-// Защита от XSS
-function escapeHtml(unsafe) {
-    if (!unsafe) return unsafe;
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+function escapeHtml(text) {
+    if (!text) return text;
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
-// ---------- Инициализация ----------
-document.addEventListener('DOMContentLoaded', function() {
-    // Ждем загрузки auth.js
-    setTimeout(() => {
+// ========== ИНИЦИАЛИЗАЦИЯ ==========
+function init() {
+    console.log('Initializing take-test page');
+    
+    if (window.currentUser) {
         loadAvailableTests(1);
-    }, 100);
-});
+    }
+    
+    window.addEventListener('auth-change', (e) => {
+        console.log('auth-change event:', e.detail);
+        if (e.detail.isAuthenticated) {
+            loadAvailableTests(1);
+        }
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+
+window.loadAvailableTests = loadAvailableTests;

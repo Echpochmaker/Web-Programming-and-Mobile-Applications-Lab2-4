@@ -2,31 +2,38 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
+from fastapi.templating import Jinja2Templates
 from app.api import tests, questions, answers, auth, results, files, profile
 from app.core.cache import cache
 from app.core.database_mongo import init_mongodb
 import os
+from contextlib import asynccontextmanager
 
+# Определяем окружение
 APP_ENV = os.getenv("APP_ENV", "development")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Starting up...")
+    # Startup
+    print("=== STARTING UP ===")
     await init_mongodb()
+    print("=== MongoDB connected and Beanie initialized ===")
     yield
-    print("Shutting down...")
+    # Shutdown
+    print("=== SHUTTING DOWN ===")
 
+# Создаем приложение
 app = FastAPI(
     title="Testing API",
-    description="API для системы онлайн-тестирования с MongoDB",
+    description="API для системы онлайн-тестирования с авторизацией",
     version="1.0.0",
-    lifespan=lifespan,
     docs_url="/api/docs" if APP_ENV != "production" else None,
     redoc_url="/api/redoc" if APP_ENV != "production" else None,
-    openapi_url="/api/openapi.json" if APP_ENV != "production" else None
+    openapi_url="/api/openapi.json" if APP_ENV != "production" else None,
+    lifespan=lifespan
 )
 
+# Добавляем CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:4200"],
@@ -35,8 +42,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Подключаем статические файлы
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Настраиваем шаблоны
+templates = Jinja2Templates(directory="templates")
+
+# Подключаем API роутеры
 app.include_router(tests.router)
 app.include_router(questions.router)
 app.include_router(answers.router)
@@ -45,22 +57,22 @@ app.include_router(results.router)
 app.include_router(files.router)
 app.include_router(profile.router)
 
-# Функция для чтения HTML файлов
-def read_html(filename: str) -> str:
-    with open(f"templates/{filename}", "r", encoding="utf-8") as f:
-        return f.read()
+# ========== СТРАНИЦЫ ==========
 
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    return HTMLResponse(content=read_html("index.html"))
+async def root(request: Request):
+    """Главная страница (мои тесты)"""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/take-test", response_class=HTMLResponse)
-async def take_test_page():
-    return HTMLResponse(content=read_html("take-test.html"))
+async def take_test_page(request: Request):
+    """Страница прохождения тестов"""
+    return templates.TemplateResponse("take-test.html", {"request": request})
 
-@app.get("/results", response_class=HTMLResponse)
-async def results_page():
-    return HTMLResponse(content=read_html("results.html"))
+@app.get("/results-page", response_class=HTMLResponse)
+async def results_page(request: Request):
+    """Страница результатов"""
+    return templates.TemplateResponse("results.html", {"request": request})
 
 @app.get("/cache-test")
 async def cache_test():
@@ -68,6 +80,7 @@ async def cache_test():
     value = cache.get("test:key")
     return {"cached": value}
 
+# Функция для настройки OpenAPI
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -77,7 +90,7 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title="Testing API",
         version="1.0.0",
-        description="API для системы онлайн-тестирования с MongoDB",
+        description="API для системы онлайн-тестирования с авторизацией",
         routes=app.routes,
     )
     

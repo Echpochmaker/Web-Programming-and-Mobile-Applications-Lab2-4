@@ -7,7 +7,7 @@ curl http://localhost:4200/profile/ -b cookies.txt
 загружаем файл 
 curl -X POST http://localhost:4200/files/ -H "Content-Type: multipart/form-data" -b cookies.txt -F "file=@kot.jpg"
 
-d610ccfe-d4a9-4c28-ab75-aa586cc57c0c
+86ad8fb9-d539-481e-990b-548c03704edf
 
 http://localhost:9001
 
@@ -22,8 +22,8 @@ curl -X GET http://localhost:4200/files/мойid -b cookies.txt --output downloa
 redis-cli --pass redis_secure_password_change_in_prod
 
 KEYS testing:files:*
-GET "testing:files:d610ccfe-d4a9-4c28-ab75-aa586cc57c0c:meta"
-TTL "testing:files:d610ccfe-d4a9-4c28-ab75-aa586cc57c0c:meta"
+GET "testing:files:86ad8fb9-d539-481e-990b-548c03704edf:meta"
+TTL "testing:files:86ad8fb9-d539-481e-990b-548c03704edf:meta"
 exit
 
 обновление профиля (установка аватара)
@@ -85,3 +85,21 @@ KEYS testing:files:*
 чето около 1) "testing:files:825a37ea-1413-49c2-9593-18f1d3379feb:meta"
 GET "testing:files:мойid:meta"
 TTL "testing:files:мойid:meta"
+
+
+
+
+# Настроить доступ к MinIO внутри контейнера
+docker exec -it testing_minio sh
+
+# Настроить alias с правильными креденшелами
+mc alias set local http://localhost:9000 minio_admin minio_secure_password_change_in_prod
+
+# Теперь посмотреть файлы
+mc ls local/testing-files/
+
+# Посмотреть конкретный файл
+mc ls local/testing-files/ | grep 6eec73e9
+
+# Выйти
+exit

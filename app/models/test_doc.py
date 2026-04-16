@@ -1,31 +1,33 @@
 from beanie import Document
 from datetime import datetime
 from typing import Optional, List
-from pydantic import Field
+from pydantic import Field, BaseModel
 from bson import ObjectId
 
-class AnswerOption(Document):
+# Встроенные документы (не наследуются от Document)
+class AnswerOption(BaseModel):
+    id: Optional[ObjectId] = Field(default_factory=ObjectId)
     text: str
     is_correct: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
     
-    class Settings:
-        name = "answer_options"
-        use_state_management = True
+    class Config:
+        arbitrary_types_allowed = True
 
-class Question(Document):
+class Question(BaseModel):
+    id: Optional[ObjectId] = Field(default_factory=ObjectId)
     text: str
     answers: List[AnswerOption] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
     
-    class Settings:
-        name = "questions"
-        use_state_management = True
+    class Config:
+        arbitrary_types_allowed = True
 
+# Основной документ (коллекция)
 class Test(Document):
     title: str
     description: Optional[str] = None

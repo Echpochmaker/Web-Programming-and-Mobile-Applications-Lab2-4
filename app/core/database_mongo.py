@@ -20,7 +20,7 @@ async def init_mongodb():
                 Token,
                 Test,
                 TestResult,
-                File,  # ← добавить модель
+                File,
             ]
         )
         print("MongoDB connected and Beanie initialized")

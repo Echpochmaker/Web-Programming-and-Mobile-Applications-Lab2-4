@@ -55,53 +55,66 @@ class TestService:
         return test
 
     @staticmethod
-    async def get_questions(test_id: str, skip: int = 0, limit: int = 100) -> List[Question]:
+    async def get_questions(test_id: str, skip: int = 0, limit: int = 100) -> List[dict]:
         test = await TestService.get_by_id(test_id)
         if not test:
             return []
         
-        questions = [q for q in test.questions if not q.deleted_at]
+        questions = []
+        for q in test.questions:
+            if not q.deleted_at:
+                q_dict = q.model_dump()
+                q_dict["id"] = str(q.id)
+                q_dict["test_id"] = test_id
+                q_dict["answers"] = []
+                for a in q.answers:
+                    if not a.deleted_at:
+                        a_dict = a.model_dump()
+                        a_dict["id"] = str(a.id)
+                        q_dict["answers"].append(a_dict)
+                questions.append(q_dict)
+        
         return questions[skip:skip+limit]
 
     @staticmethod
-    async def get_question_by_id(test_id: str, question_id: str) -> Optional[Question]:
+    async def add_question(test_id: str, question_data: dict) -> Optional[dict]:
         test = await TestService.get_by_id(test_id)
         if not test:
             return None
         
-        for q in test.questions:
-            if str(q.id) == question_id and not q.deleted_at:
-                return q
-        return None
-
-    @staticmethod
-    async def add_question(test_id: str, question_data: dict) -> Optional[Question]:
-        test = await TestService.get_by_id(test_id)
-        if not test:
-            return None
+        # Создаём вопрос
+        question = Question(
+            text=question_data.get('text'),
+            answers=[]
+        )
         
-        question = Question(**question_data)
+        # Добавляем ответы если есть
+        if 'answers' in question_data and question_data['answers']:
+            for answer_data in question_data['answers']:
+                answer = AnswerOption(
+                    text=answer_data.get('text'),
+                    is_correct=answer_data.get('is_correct', False)
+                )
+                question.answers.append(answer)
+        
         test.questions.append(question)
         test.updated_at = datetime.utcnow()
         await test.save()
-        return question
-
-    @staticmethod
-    async def update_question(test_id: str, question_id: str, question_data: dict) -> Optional[Question]:
-        test = await TestService.get_by_id(test_id)
-        if not test:
-            return None
         
-        for q in test.questions:
-            if str(q.id) == question_id and not q.deleted_at:
-                q.text = question_data.get("text", q.text)
-                test.updated_at = datetime.utcnow()
-                await test.save()
-                return q
-        return None
+        # Возвращаем данные
+        result = question.model_dump()
+        result["id"] = str(question.id)
+        result["test_id"] = test_id
+        result["answers"] = []
+        for a in question.answers:
+            a_dict = a.model_dump()
+            a_dict["id"] = str(a.id)
+            result["answers"].append(a_dict)
+        
+        return result
 
     @staticmethod
-    async def delete_question(test_id: str, question_id: str) -> Optional[Question]:
+    async def delete_question(test_id: str, question_id: str) -> Optional[bool]:
         test = await TestService.get_by_id(test_id)
         if not test:
             return None
@@ -111,44 +124,67 @@ class TestService:
                 q.deleted_at = datetime.utcnow()
                 test.updated_at = datetime.utcnow()
                 await test.save()
-                return q
+                return True
         return None
 
     @staticmethod
-    async def get_answers(question_id: str) -> List[AnswerOption]:
-        # Найти вопрос во всех тестах
-        test = await Test.find_one({"questions.id": question_id})
-        if not test:
-            return []
-        
-        for q in test.questions:
-            if str(q.id) == question_id and not q.deleted_at:
-                return [a for a in q.answers if not a.deleted_at]
-        return []
-
-    @staticmethod
-    async def get_test_by_question_id(question_id: str) -> Optional[Test]:
-        test = await Test.find_one({"questions.id": question_id})
-        return test
-
-    @staticmethod
-    async def create_answer(question_id: str, answer_data: dict) -> Optional[AnswerOption]:
-        test = await Test.find_one({"questions.id": question_id})
+    async def create_answer(question_id: str, answer_data: dict) -> Optional[dict]:
+        try:
+            test = await Test.find_one({"questions.id": ObjectId(question_id)})
+        except:
+            return None
+            
         if not test:
             return None
         
         for q in test.questions:
             if str(q.id) == question_id and not q.deleted_at:
-                answer = AnswerOption(**answer_data)
+                answer = AnswerOption(
+                    text=answer_data.get('text'),
+                    is_correct=answer_data.get('is_correct', False)
+                )
                 q.answers.append(answer)
                 test.updated_at = datetime.utcnow()
                 await test.save()
-                return answer
+                
+                result = answer.model_dump()
+                result["id"] = str(answer.id)
+                return result
         return None
 
     @staticmethod
-    async def update_answer(question_id: str, answer_id: str, answer_data: dict) -> Optional[AnswerOption]:
-        test = await Test.find_one({"questions.id": question_id})
+    async def get_test_by_question_id(question_id: str) -> Optional[Test]:
+        try:
+            test = await Test.find_one({"questions.id": ObjectId(question_id)})
+            return test
+        except:
+            return None
+
+    @staticmethod
+    async def get_answers(question_id: str) -> List[dict]:
+        try:
+            test = await Test.find_one({"questions.id": ObjectId(question_id)})
+        except:
+            return []
+            
+        if not test:
+            return []
+        
+        for q in test.questions:
+            if str(q.id) == question_id and not q.deleted_at:
+                return [
+                    {**a.model_dump(), "id": str(a.id)}
+                    for a in q.answers if not a.deleted_at
+                ]
+        return []
+
+    @staticmethod
+    async def update_answer(question_id: str, answer_id: str, answer_data: dict) -> Optional[dict]:
+        try:
+            test = await Test.find_one({"questions.id": ObjectId(question_id)})
+        except:
+            return None
+            
         if not test:
             return None
         
@@ -156,16 +192,26 @@ class TestService:
             if str(q.id) == question_id and not q.deleted_at:
                 for a in q.answers:
                     if str(a.id) == answer_id and not a.deleted_at:
-                        a.text = answer_data.get("text", a.text)
-                        a.is_correct = answer_data.get("is_correct", a.is_correct)
+                        if 'text' in answer_data:
+                            a.text = answer_data['text']
+                        if 'is_correct' in answer_data:
+                            a.is_correct = answer_data['is_correct']
+                        a.updated_at = datetime.utcnow()
                         test.updated_at = datetime.utcnow()
                         await test.save()
-                        return a
+                        
+                        result = a.model_dump()
+                        result["id"] = str(a.id)
+                        return result
         return None
 
     @staticmethod
-    async def delete_answer(question_id: str, answer_id: str) -> Optional[AnswerOption]:
-        test = await Test.find_one({"questions.id": question_id})
+    async def delete_answer(question_id: str, answer_id: str) -> Optional[bool]:
+        try:
+            test = await Test.find_one({"questions.id": ObjectId(question_id)})
+        except:
+            return None
+            
         if not test:
             return None
         
@@ -176,5 +222,5 @@ class TestService:
                         a.deleted_at = datetime.utcnow()
                         test.updated_at = datetime.utcnow()
                         await test.save()
-                        return a
-        return None
+                        return True
+        return False

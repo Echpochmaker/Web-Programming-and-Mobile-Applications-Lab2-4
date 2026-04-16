@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from app.core.cache import cache
 from jose import jwt
-from app.models import Token
+from app.models.token_doc import Token
 import hashlib
 import secrets
 from typing import Optional, Tuple
@@ -23,7 +23,7 @@ class TokenService:
         jti = str(uuid.uuid4())
         expires_at = datetime.utcnow() + timedelta(minutes=TokenService.ACCESS_EXPIRATION)
         payload = {
-            "sub": user_id,
+            "sub": str(user_id),
             "exp": expires_at,
             "type": "access",
             "jti": jti
@@ -36,14 +36,6 @@ class TokenService:
         token = secrets.token_urlsafe(32)
         expires_at = datetime.utcnow() + timedelta(days=TokenService.REFRESH_EXPIRATION)
         return token, expires_at
-    
-    @staticmethod
-    def verify_access_token(token: str) -> Optional[str]:
-        try:
-            payload = jwt.decode(token, TokenService.ACCESS_SECRET, algorithms=["HS256"])
-            return payload.get("sub")
-        except:
-            return None
     
     @staticmethod
     async def create_token_pair(user_id: str, user_agent: str = None, ip: str = None) -> Tuple[str, str]:
@@ -69,26 +61,27 @@ class TokenService:
     @staticmethod
     async def refresh_tokens(refresh_token: str, user_agent: str = None, ip: str = None) -> Optional[Tuple[str, str]]:
         token_hash = TokenService.hash_token(refresh_token)
-        token_record = await Token.find_one({
+        
+        collection = Token.get_motor_collection()
+        doc = await collection.find_one({
             "refresh_token_hash": token_hash,
             "is_revoked": False,
             "refresh_expires_at": {"$gt": datetime.utcnow()}
         })
         
-        if not token_record:
+        if not doc:
             return None
+        
+        token_record = Token(**doc)
         
         return await TokenService.create_token_pair(token_record.user_id, user_agent, ip)
     
     @staticmethod
     async def revoke_tokens(user_id: str, all_sessions: bool = False, current_token_hash: str = None):
+        collection = Token.get_motor_collection()
         query = {"user_id": user_id, "is_revoked": False}
+        
         if not all_sessions and current_token_hash:
             query["refresh_token_hash"] = current_token_hash
         
-        await Token.find(query).update({"$set": {"is_revoked": True}})
-    
-    @staticmethod
-    def revoke_access_token(user_id: str, jti: str):
-        cache_key = f"testing:auth:user:{user_id}:access:{jti}"
-        cache.delete(cache_key)
+        await collection.update_many(query, {"$set": {"is_revoked": True}})

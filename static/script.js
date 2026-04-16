@@ -49,8 +49,8 @@ function refreshUI() {
 }
 
 // ---------- Слушаем событие авторизации ----------
-window.addEventListener('auth-change', function() {
-    console.log('auth-change event received');
+window.addEventListener('auth-change', function(event) {
+    console.log('auth-change event received', event.detail);
     refreshUI();
 });
 
@@ -59,6 +59,7 @@ function showTestsList() {
     if (testsListMode) testsListMode.style.display = 'block';
     if (testEditMode) testEditMode.style.display = 'none';
     if (backToTestsBtn) backToTestsBtn.style.display = 'none';
+    currentTestId = null;
     loadTests(currentPage);
 }
 
@@ -102,6 +103,7 @@ async function loadTests(page = 1) {
         console.log('Получены тесты:', data);
         
         displayTests(data.data, data.meta, page);
+        currentPage = page;
     } catch (error) {
         console.error('Ошибка загрузки тестов:', error);
         if (testsListDiv) {
@@ -110,7 +112,7 @@ async function loadTests(page = 1) {
     }
 }
 
-function displayTests(tests, meta, currentPage) {
+function displayTests(tests, meta, currentPageNum) {
     if (!testsListDiv) return;
     
     if (!tests || tests.length === 0) {
@@ -130,12 +132,12 @@ function displayTests(tests, meta, currentPage) {
     myTests.forEach(test => {
         html += `
             <div class="test-item" data-id="${test.id}">
-                <div class="test-info" onclick="showTestEdit(${test.id})" style="cursor: pointer;">
+                <div class="test-info" onclick="showTestEdit('${test.id}')" style="cursor: pointer;">
                     <h3>${escapeHtml(test.title)}</h3>
                     <p>${escapeHtml(test.description || '')}</p>
                 </div>
                 <div class="test-actions">
-                    <button class="btn-delete" onclick="deleteTest(${test.id}); event.stopPropagation();">Удалить</button>
+                    <button class="btn-delete" onclick="deleteTest('${test.id}'); event.stopPropagation();">Удалить</button>
                 </div>
             </div>
         `;
@@ -143,21 +145,23 @@ function displayTests(tests, meta, currentPage) {
 
     // Пагинация
     const totalPages = Math.ceil(meta.total / limit);
-    html += '<div class="pagination">';
-    if (currentPage > 1) {
-        html += `<button onclick="loadTests(${currentPage - 1})">Предыдущая</button>`;
+    if (totalPages > 1) {
+        html += '<div class="pagination">';
+        if (currentPageNum > 1) {
+            html += `<button onclick="loadTests(${currentPageNum - 1})">Предыдущая</button>`;
+        }
+        html += `<span>Страница ${currentPageNum} из ${totalPages}</span>`;
+        if (currentPageNum < totalPages) {
+            html += `<button onclick="loadTests(${currentPageNum + 1})">Следующая</button>`;
+        }
+        html += '</div>';
     }
-    html += `<span>Страница ${currentPage} из ${totalPages}</span>`;
-    if (currentPage < totalPages) {
-        html += `<button onclick="loadTests(${currentPage + 1})">Следующая</button>`;
-    }
-    html += '</div>';
 
     testsListDiv.innerHTML = html;
 }
 
 // Удаление теста
-async function deleteTest(id) {
+window.deleteTest = async function(id) {
     const confirmed = await window.showConfirm('Вы уверены, что хотите удалить этот тест?');
     if (!confirmed) return;
     
@@ -171,7 +175,7 @@ async function deleteTest(id) {
     } catch (error) {
         alert('Ошибка: ' + error.message);
     }
-}
+};
 
 // Создание теста
 if (createTestForm) {
@@ -246,16 +250,16 @@ function renderQuestions(questions) {
             <div class="question-card" data-question-id="${q.id}">
                 <div class="question-header">
                     <h4>Вопрос ${qIndex + 1}</h4>
-                    <button class="delete-question-btn" onclick="deleteQuestion(${q.id})">Удалить вопрос</button>
+                    <button class="delete-question-btn" onclick="deleteQuestion('${q.id}')">Удалить вопрос</button>
                 </div>
                 <div class="form-group">
                     <label>Текст вопроса:</label>
-                    <input type="text" class="question-text" value="${escapeHtml(q.text)}" data-question-id="${q.id}" onchange="updateQuestionText(${q.id}, this.value)">
+                    <input type="text" class="question-text" value="${escapeHtml(q.text)}" data-question-id="${q.id}" onchange="updateQuestionText('${q.id}', this.value)">
                 </div>
                 <div class="answers-list" data-question-id="${q.id}">
                     ${renderAnswers(q.answers || [], q.id)}
                 </div>
-                <button class="btn-small add-answer-btn" onclick="addAnswer(${q.id}, ${currentTestId})">+ Добавить ответ</button>
+                <button class="btn-small add-answer-btn" onclick="addAnswer('${q.id}', '${currentTestId}')">+ Добавить ответ</button>
             </div>
         `;
     });
@@ -268,9 +272,9 @@ function renderAnswers(answers, questionId) {
     answers.forEach(a => {
         html += `
             <div class="answer-item" data-answer-id="${a.id}">
-                <input type="checkbox" ${a.is_correct ? 'checked' : ''} onchange="toggleCorrect(${a.id}, this.checked, ${questionId})">
-                <input type="text" value="${escapeHtml(a.text)}" onchange="updateAnswerText(${a.id}, this.value, ${questionId})">
-                <button onclick="deleteAnswer(${a.id}, ${questionId})">Удалить</button>
+                <input type="checkbox" ${a.is_correct ? 'checked' : ''} onchange="toggleCorrect('${a.id}', this.checked, '${questionId}')">
+                <input type="text" value="${escapeHtml(a.text)}" onchange="updateAnswerText('${a.id}', this.value, '${questionId}')">
+                <button onclick="deleteAnswer('${a.id}', '${questionId}')">Удалить</button>
             </div>
         `;
     });
@@ -304,7 +308,7 @@ if (editTestForm) {
     });
 }
 
-// Добавить вопрос - СТИЛИЗОВАННОЕ ОКНО
+// Добавить вопрос
 if (addQuestionBtn) {
     addQuestionBtn.addEventListener('click', async () => {
         const result = await window.showAddQuestionModal();
@@ -331,7 +335,7 @@ if (addQuestionBtn) {
     });
 }
 
-// Удаление вопроса - СТИЛИЗОВАННОЕ ОКНО
+// Удаление вопроса
 window.deleteQuestion = async function(questionId) {
     const confirmed = await window.showConfirm('Вы уверены, что хотите удалить этот вопрос?');
     if (!confirmed) return;
@@ -382,7 +386,7 @@ window.updateQuestionText = async function(questionId, newText) {
     }
 };
 
-// Добавление ответа - СТИЛИЗОВАННОЕ ОКНО
+// Добавление ответа
 window.addAnswer = async function(questionId, testId) {
     const result = await window.showAddAnswerModal();
     if (!result || !result.text) return;
@@ -451,7 +455,7 @@ window.toggleCorrect = async function(answerId, checked, questionId) {
     }
 };
 
-// Удаление ответа - СТИЛИЗОВАННОЕ ОКНО
+// Удаление ответа
 window.deleteAnswer = async function(answerId, questionId) {
     const confirmed = await window.showConfirm('Вы уверены, что хотите удалить этот ответ?');
     if (!confirmed) return;
@@ -482,7 +486,18 @@ function escapeHtml(unsafe) {
 // ---------- Инициализация ----------
 function initialize() {
     console.log('Инициализация script.js...');
-    refreshUI();
+    
+    // Если пользователь уже авторизован, обновляем UI
+    if (window.currentUser) {
+        refreshUI();
+    } else {
+        // Ждем событие авторизации
+        window.addEventListener('auth-change', function(event) {
+            if (event.detail.isAuthenticated) {
+                refreshUI();
+            }
+        });
+    }
 }
 
 // Запускаем после загрузки DOM
@@ -501,152 +516,4 @@ window.addAnswer = addAnswer;
 window.updateAnswerText = updateAnswerText;
 window.toggleCorrect = toggleCorrect;
 window.deleteAnswer = deleteAnswer;
-
-// ========== СТИЛИЗОВАННЫЕ МОДАЛЬНЫЕ ОКНА ==========
-
-function showModal(options) {
-    // Удаляем существующий оверлей, если есть
-    const existingOverlay = document.querySelector('.modal-overlay');
-    if (existingOverlay) existingOverlay.remove();
-    
-    const { title, message, inputType = 'text', placeholder = '', confirmText = 'OK', cancelText = 'Отмена', showCancel = true, showCheckbox = false, checkboxLabel = '' } = options;
-    
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    
-    let bodyHtml = '';
-    
-    if (message) {
-        bodyHtml += `<p style="margin-bottom: 15px;">${escapeHtml(message)}</p>`;
-    }
-    
-    if (options.type === 'prompt') {
-        bodyHtml += `
-            <div class="form-group">
-                <label>${escapeHtml(title || 'Введите значение:')}</label>
-                <input type="${inputType}" id="modalInput" placeholder="${escapeHtml(placeholder)}" autofocus>
-            </div>
-        `;
-    } else if (options.type === 'confirm') {
-        bodyHtml = `<p>${escapeHtml(message || title || 'Подтвердите действие')}</p>`;
-    } else if (options.type === 'addAnswer') {
-        bodyHtml = `
-            <div class="form-group">
-                <label>Текст ответа:</label>
-                <input type="text" id="modalInput" placeholder="Введите текст ответа" autofocus>
-            </div>
-            <div class="checkbox-group">
-                <input type="checkbox" id="modalCheckbox">
-                <label for="modalCheckbox">${escapeHtml(checkboxLabel || 'Это правильный ответ')}</label>
-            </div>
-        `;
-    } else if (options.type === 'addQuestion') {
-        bodyHtml = `
-            <div class="form-group">
-                <label>Текст вопроса:</label>
-                <textarea id="modalInput" placeholder="Введите текст вопроса" rows="3"></textarea>
-            </div>
-        `;
-    }
-    
-    overlay.innerHTML = `
-        <div class="modal-window">
-            <div class="modal-header">
-                <h3>${escapeHtml(title || 'Ввод данных')}</h3>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                ${bodyHtml}
-            </div>
-            <div class="modal-footer">
-                ${showCancel ? `<button class="btn btn-secondary" id="modalCancel">${escapeHtml(cancelText)}</button>` : ''}
-                <button class="btn" id="modalConfirm">${escapeHtml(confirmText)}</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(overlay);
-    
-    const input = overlay.querySelector('#modalInput');
-    const checkbox = overlay.querySelector('#modalCheckbox');
-    
-    return new Promise((resolve) => {
-        const closeModal = (result) => {
-            overlay.remove();
-            resolve(result);
-        };
-        
-        overlay.querySelector('.modal-close').onclick = () => closeModal(null);
-        if (showCancel) overlay.querySelector('#modalCancel').onclick = () => closeModal(null);
-        overlay.querySelector('#modalConfirm').onclick = () => {
-            if (options.type === 'prompt') {
-                closeModal(input ? input.value : null);
-            } else if (options.type === 'addAnswer') {
-                closeModal({
-                    text: input ? input.value : '',
-                    isCorrect: checkbox ? checkbox.checked : false
-                });
-            } else if (options.type === 'addQuestion') {
-                closeModal(input ? input.value : null);
-            } else if (options.type === 'confirm') {
-                closeModal(true);
-            } else {
-                closeModal(true);
-            }
-        };
-        
-        if (input) {
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    overlay.querySelector('#modalConfirm').click();
-                }
-            });
-            input.focus();
-        }
-    });
-}
-
-// Переопределяем стандартные функции для работы с модальными окнами
-window.showPrompt = async function(title, placeholder = '') {
-    const result = await showModal({
-        type: 'prompt',
-        title: title,
-        placeholder: placeholder,
-        confirmText: 'OK',
-        cancelText: 'Отмена'
-    });
-    return result;
-};
-
-window.showConfirm = async function(message) {
-    const result = await showModal({
-        type: 'confirm',
-        title: 'Подтверждение',
-        message: message,
-        confirmText: 'Да',
-        cancelText: 'Нет'
-    });
-    return result === true;
-};
-
-window.showAddAnswerModal = async function() {
-    const result = await showModal({
-        type: 'addAnswer',
-        title: 'Добавить ответ',
-        confirmText: 'Добавить',
-        cancelText: 'Отмена',
-        checkboxLabel: 'Это правильный ответ'
-    });
-    return result;
-};
-
-window.showAddQuestionModal = async function() {
-    const result = await showModal({
-        type: 'addQuestion',
-        title: 'Добавить вопрос',
-        confirmText: 'Добавить',
-        cancelText: 'Отмена',
-        placeholder: 'Введите текст вопроса'
-    });
-    return result;
-};
+window.loadTests = loadTests;
