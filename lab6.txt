@@ -1,0 +1,88 @@
+//запуск
+docker-compose up --build -d
+
+//регистрация
+curl -X POST http://localhost:4200/auth/register -H "Content-Type: application/json" -d "{\"email\":\"demo@example.com\",\"password\":\"demo123456\"}"
+
+//вход
+curl -X POST http://localhost:4200/auth/login -H "Content-Type: application/json" -d "{\"login\":\"demo@example.com\",\"password\":\"demo123456\"}" -c cookies.txt
+
+//проверка whoami
+# Первый запрос (Cache MISS)
+curl http://localhost:4200/auth/whoami -b cookies.txt
+
+# Второй запрос (Cache HIT)
+curl http://localhost:4200/auth/whoami -b cookies.txt
+
+//создание теста
+curl -X POST http://localhost:4200/tests/ -H "Content-Type: application/json" -b cookies.txt -d "{\"title\":\"Демо тест\",\"description\":\"Тест для демонстрации\"}"
+
+-69d93894c59c2b1c73747802
+
+
+//получение списка тестов
+# Первый запрос (Cache MISS)
+curl "http://localhost:4200/tests/?page=1&limit=5" -b cookies.txt
+
+# Второй запрос (Cache HIT)
+curl "http://localhost:4200/tests/?page=1&limit=5" -b cookies.txt
+
+# Пагинация - страница 2
+curl "http://localhost:4200/tests/?page=2&limit=5" -b cookies.txt
+
+//обновление теста
+# Замените ID на полученный в шаге 5
+curl -X PATCH http://localhost:4200/tests/idмой -H "Content-Type: application/json" -b cookies.txt -d "{\"title\":\"Обновлённый демо тест\"}"
+
+//мягкое удаление
+# Удаление теста
+curl -X DELETE http://localhost:4200/tests/idмоеготеста -b cookies.txt
+
+# Проверка, что тест пропал из списка
+curl "http://localhost:4200/tests/?page=1&limit=10" -b cookies.txt
+
+//выход из системы
+curl -X POST http://localhost:4200/auth/logout -b cookies.txt
+
+# Проверка, что токен отозван
+curl http://localhost:4200/auth/whoami -b cookies.txt
+
+# Запуск MongoDB Shell
+docker exec -it testing_mongo mongosh -u student -p student_secure_password --authenticationDatabase admin
+
+//далее зайти в бд
+use testing_db
+
+//показать 
+show collections
+
+//тесты
+db.tests.find().pretty()
+
+
+//Активные тесты
+db.tests.find({deleted_at: null}).pretty()
+
+// удалённые тесты имеют deleted_at
+db.tests.find({deleted_at: {$ne: null}}, {title: 1, deleted_at: 1}).pretty()
+
+// активные тесты не возвращают удалённые
+db.tests.find({deleted_at: null}, {title: 1, deleted_at: 1}).pretty()
+
+// пользователи
+db.users.find({}, {email: 1, created_at: 1}).pretty()
+
+// токены
+db.tokens.find({}, {user_id: 1, is_revoked: 1}).pretty()
+
+
+
+# Подключение к Redis
+redis-cli --pass redis_secure_password_change_in_prod
+
+KEYS testing:*
+GET "testing:tests:list:page:1:limit:10"
+TTL "testing:tests:list:page:1:limit:10"
+KEYS testing:auth:user:*
+KEYS testing:users:profile:*
+exit

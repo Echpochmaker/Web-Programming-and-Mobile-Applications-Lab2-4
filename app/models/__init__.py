@@ -1,3 +1,5 @@
-from .test import Test, Question, AnswerOption, TestResult, UserAnswer
-from .user import User
-from .token import Token
+from .user_doc import User
+from .token_doc import Token
+from .test_doc import Test, Question, AnswerOption
+from .result_doc import TestResult, UserAnswer
+from .file_doc import File

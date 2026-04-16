@@ -49,21 +49,13 @@ class UserLogin(BaseModel):
 
 # Ответ с информацией о пользователе (без чувствительных данных)
 class UserResponse(BaseModel):
-    id: int = Field(..., description="Уникальный идентификатор пользователя")
+    id: str = Field(..., description="Уникальный идентификатор пользователя")  # было int, стало str
     email: Optional[str] = Field(None, description="Email пользователя")
     phone: Optional[str] = Field(None, description="Телефон пользователя")
     created_at: datetime = Field(..., description="Дата регистрации")
     
     class Config:
         from_attributes = True
-        json_schema_extra = {
-            "example": {
-                "id": 1,
-                "email": "user@example.com",
-                "phone": "+79991234567",
-                "created_at": "2026-03-18T12:00:00.000Z"
-            }
-        }
 
 # Запрос на сброс пароля
 class ForgotPasswordRequest(BaseModel):

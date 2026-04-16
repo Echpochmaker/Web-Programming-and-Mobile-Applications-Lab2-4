@@ -1,158 +1,233 @@
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_
-from app.models.test import Test, Question, AnswerOption, TestResult, UserAnswer
-from app.models.user import User
-from app.schemas.result import AnswerSubmission
+from app.models.test_doc import Test, Question
+from app.models.result_doc import TestResult, UserAnswer
+from app.models.user_doc import User
 from datetime import datetime
 from typing import List, Optional
+from bson import ObjectId
 
 class ResultService:
     
     @staticmethod
-    def get_available_tests(db: Session, user_id: int, page: int = 1, limit: int = 10):
-        """Получить тесты, доступные для прохождения (чужие тесты)"""
-        query = db.query(Test).filter(
-            Test.owner_id != user_id,  # не свои тесты
-            Test.deleted_at.is_(None)
-        )
-        total = query.count()
-        tests = query.offset((page - 1) * limit).limit(limit).all()
+    async def get_available_tests(user_id: str, page: int = 1, limit: int = 10):
+        skip = (page - 1) * limit
         
-        # Дополняем информацией о количестве вопросов и попытках
+        query = Test.find({"owner_id": {"$ne": user_id}, "deleted_at": None})
+        total = await query.count()
+        tests = await query.skip(skip).limit(limit).to_list()
+        
         result = []
         for test in tests:
             questions_count = len(test.questions)
-            # Сколько раз пользователь уже проходил этот тест
-            attempts = db.query(TestResult).filter(
-                TestResult.test_id == test.id,
-                TestResult.user_id == user_id
-            ).count()
+            attempts = await TestResult.find({
+                "test_id": str(test.id),
+                "user_id": user_id
+            }).count()
+            
+            # Получаем автора
+            author = await User.get(ObjectId(test.owner_id))
             
             result.append({
-                "id": test.id,
+                "id": str(test.id),
                 "title": test.title,
                 "description": test.description,
-                "author_email": test.owner.email if test.owner else "Unknown",
+                "author_email": author.email if author else "Unknown",
                 "questions_count": questions_count,
-                "attempts_count": None,
                 "user_attempts": attempts
             })
         
         return result, total
     
     @staticmethod
-    def start_test(db: Session, test_id: int, user_id: int) -> TestResult:
-        """Начать прохождение теста"""
-        test = db.query(Test).filter(Test.id == test_id, Test.deleted_at.is_(None)).first()
-        if not test:
+    async def start_test(test_id: str, user_id: str) -> Optional[dict]:
+        test = await Test.get(ObjectId(test_id))
+        if not test or test.deleted_at:
             return None
         
-        # Создаем запись о результате
         total_questions = len(test.questions)
         result = TestResult(
             user_id=user_id,
             test_id=test_id,
+            test_title=test.title,
             total_questions=total_questions,
             status="in_progress"
         )
-        db.add(result)
-        db.commit()
-        db.refresh(result)
-        return result
+        await result.insert()
+        
+        # Возвращаем вопросы с ответами
+        questions_data = []
+        for q in test.questions:
+            if not q.deleted_at:
+                questions_data.append({
+                    "id": str(q.id),
+                    "text": q.text,
+                    "answers": [{"id": str(a.id), "text": a.text, "is_correct": a.is_correct} for a in q.answers if not a.deleted_at]
+                })
+        
+        return {
+            "id": str(result.id),
+            "user_id": result.user_id,
+            "test_id": result.test_id,
+            "test_title": result.test_title,
+            "total_questions": result.total_questions,
+            "started_at": result.started_at,
+            "status": result.status,
+            "questions": questions_data
+        }
     
     @staticmethod
-    def get_test_questions(db: Session, test_id: int) -> List[Question]:
-        """Получить все вопросы теста с ответами"""
-        return db.query(Question).filter(
-            Question.test_id == test_id,
-            Question.deleted_at.is_(None)
-        ).options(joinedload(Question.answer_options)).all()
-    
-    @staticmethod
-    def submit_answer(db: Session, answer_data: AnswerSubmission) -> Optional[UserAnswer]:
-        """Сохранить ответ пользователя на вопрос"""
-        # Проверяем, что результат существует и ещё не завершён
-        result = db.query(TestResult).filter(
-            TestResult.id == answer_data.result_id,
-            TestResult.status == "in_progress"
-        ).first()
-        if not result:
+    async def submit_answer(answer_data: dict) -> Optional[dict]:
+        result = await TestResult.get(ObjectId(answer_data["result_id"]))
+        if not result or result.status != "in_progress":
             return None
         
-        # Получаем вопрос и правильный ответ
-        question = db.query(Question).filter(Question.id == answer_data.question_id).first()
+        test = await Test.get(ObjectId(result.test_id))
+        if not test:
+            return None
+        
+        # Находим вопрос и правильный ответ
+        question = None
+        correct_answer = None
+        for q in test.questions:
+            if str(q.id) == answer_data["question_id"]:
+                question = q
+                for a in q.answers:
+                    if a.is_correct and not a.deleted_at:
+                        correct_answer = a
+                break
+        
         if not question:
             return None
         
-        # Проверяем, правильный ли ответ
-        correct_answer = db.query(AnswerOption).filter(
-            AnswerOption.question_id == answer_data.question_id,
-            AnswerOption.is_correct == True,
-            AnswerOption.deleted_at.is_(None)
-        ).first()
+        selected_answer = None
+        for a in question.answers:
+            if str(a.id) == answer_data["selected_answer_id"]:
+                selected_answer = a
+                break
         
-        is_correct = False
-        if correct_answer and correct_answer.id == answer_data.selected_answer_id:
-            is_correct = True
+        is_correct = selected_answer and selected_answer.is_correct
         
-        # Сохраняем ответ
-        answer = UserAnswer(
-            result_id=answer_data.result_id,
-            question_id=answer_data.question_id,
-            selected_answer_id=answer_data.selected_answer_id,
-            is_correct=is_correct
+        user_answer = UserAnswer(
+            question_id=answer_data["question_id"],
+            question_text=question.text,
+            selected_answer_id=answer_data["selected_answer_id"],
+            selected_answer_text=selected_answer.text if selected_answer else None,
+            is_correct=is_correct,
+            correct_answer_id=str(correct_answer.id) if correct_answer else None,
+            correct_answer_text=correct_answer.text if correct_answer else None
         )
-        db.add(answer)
-        db.commit()
-        db.refresh(answer)
-        return answer
+        
+        result.answers.append(user_answer)
+        await result.save()
+        
+        return {
+            "id": str(user_answer.id),
+            "question_id": user_answer.question_id,
+            "question_text": user_answer.question_text,
+            "selected_answer_id": user_answer.selected_answer_id,
+            "selected_answer_text": user_answer.selected_answer_text,
+            "is_correct": user_answer.is_correct,
+            "correct_answer_id": user_answer.correct_answer_id,
+            "correct_answer_text": user_answer.correct_answer_text
+        }
     
     @staticmethod
-    def finish_test(db: Session, result_id: int) -> Optional[TestResult]:
-        """Завершить тест и подсчитать результат"""
-        result = db.query(TestResult).filter(
-            TestResult.id == result_id,
-            TestResult.status == "in_progress"
-        ).first()
-        if not result:
+    async def finish_test(result_id: str) -> Optional[dict]:
+        result = await TestResult.get(ObjectId(result_id))
+        if not result or result.status != "in_progress":
             return None
         
-        # Получаем все ответы пользователя
-        answers = db.query(UserAnswer).filter(UserAnswer.result_id == result_id).all()
-        
-        # Подсчитываем правильные ответы
-        correct_count = sum(1 for a in answers if a.is_correct)
+        correct_count = sum(1 for a in result.answers if a.is_correct)
         score = (correct_count / result.total_questions) * 100 if result.total_questions > 0 else 0
         
-        # Обновляем результат
         result.correct_answers = correct_count
         result.score = score
         result.completed_at = datetime.utcnow()
         result.status = "completed"
+        await result.save()
         
-        db.commit()
-        db.refresh(result)
-        return result
+        # Формируем ответ с деталями
+        answers_data = []
+        for a in result.answers:
+            answers_data.append({
+                "id": str(a.id),
+                "question_id": a.question_id,
+                "question_text": a.question_text,
+                "selected_answer_id": a.selected_answer_id,
+                "selected_answer_text": a.selected_answer_text,
+                "is_correct": a.is_correct,
+                "correct_answer_id": a.correct_answer_id,
+                "correct_answer_text": a.correct_answer_text
+            })
+        
+        return {
+            "id": str(result.id),
+            "user_id": result.user_id,
+            "test_id": result.test_id,
+            "test_title": result.test_title,
+            "score": result.score,
+            "correct_answers": result.correct_answers,
+            "total_questions": result.total_questions,
+            "started_at": result.started_at,
+            "completed_at": result.completed_at,
+            "status": result.status,
+            "answers": answers_data
+        }
     
     @staticmethod
-    def get_result(db: Session, result_id: int, user_id: int) -> Optional[TestResult]:
-        """Получить результат по ID с ответами"""
-        return db.query(TestResult).filter(
-            TestResult.id == result_id,
-            TestResult.user_id == user_id
-        ).options(
-            joinedload(TestResult.answers).joinedload(UserAnswer.question),
-            joinedload(TestResult.answers).joinedload(UserAnswer.selected_answer)
-        ).first()
+    async def get_result(result_id: str, user_id: str) -> Optional[dict]:
+        result = await TestResult.get(ObjectId(result_id))
+        if not result or result.user_id != user_id:
+            return None
+        
+        answers_data = []
+        for a in result.answers:
+            answers_data.append({
+                "id": str(a.id),
+                "question_id": a.question_id,
+                "question_text": a.question_text,
+                "selected_answer_id": a.selected_answer_id,
+                "selected_answer_text": a.selected_answer_text,
+                "is_correct": a.is_correct,
+                "correct_answer_id": a.correct_answer_id,
+                "correct_answer_text": a.correct_answer_text
+            })
+        
+        return {
+            "id": str(result.id),
+            "user_id": result.user_id,
+            "test_id": result.test_id,
+            "test_title": result.test_title,
+            "score": result.score,
+            "correct_answers": result.correct_answers,
+            "total_questions": result.total_questions,
+            "started_at": result.started_at,
+            "completed_at": result.completed_at,
+            "status": result.status,
+            "answers": answers_data
+        }
     
     @staticmethod
-    def get_user_results(db: Session, user_id: int, page: int = 1, limit: int = 10):
-        """Получить все результаты пользователя"""
-        query = db.query(TestResult).filter(
-            TestResult.user_id == user_id,
-            TestResult.status == "completed"
-        ).order_by(TestResult.completed_at.desc())
+    async def get_user_results(user_id: str, page: int = 1, limit: int = 10):
+        skip = (page - 1) * limit
         
-        total = query.count()
-        results = query.offset((page - 1) * limit).limit(limit).all()
-        return results, total
+        # Исправленный вариант сортировки
+        query = TestResult.find({"user_id": user_id, "status": "completed"}).sort(("completed_at", -1))
+        total = await query.count()
+        results = await query.skip(skip).limit(limit).to_list()
+        
+        items = []
+        for r in results:
+            items.append({
+                "id": str(r.id),
+                "user_id": r.user_id,
+                "test_id": r.test_id,
+                "test_title": r.test_title,
+                "score": r.score,
+                "correct_answers": r.correct_answers,
+                "total_questions": r.total_questions,
+                "started_at": r.started_at,
+                "completed_at": r.completed_at,
+                "status": r.status
+            })
+    
+        return items, total
