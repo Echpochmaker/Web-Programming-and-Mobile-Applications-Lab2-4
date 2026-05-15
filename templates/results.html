@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мои результаты - Система тестирования</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 </head>
 <body>
     <nav class="navbar">
@@ -15,13 +16,13 @@
             <div class="nav-links">
                 <a href="/" class="nav-link">Мои тесты</a>
                 <a href="/take-test" class="nav-link">Пройти тест</a>
-                <a href="/results-page" class="nav-link">📊 Результаты</a>
+                <a href="/results-page" class="nav-link active">📊 Результаты</a>
             </div>
             <div class="nav-right">
-                <div class="widget-container" id="widgetContainer"></div>
                 <div class="nav-user" id="navUser">
                     <div class="loading-spinner">Загрузка...</div>
                 </div>
+                <div class="widget-container" id="widgetContainer"></div>
             </div>
         </div>
     </nav>
@@ -31,7 +32,6 @@
             <h1>📊 Мои результаты</h1>
         </div>
 
-        <!-- Список результатов -->
         <div class="card">
             <div id="resultsList" class="results-list">
                 <p>Загрузка...</p>
@@ -42,8 +42,70 @@
     <!-- Модальное окно для деталей результата -->
     <div id="resultModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
-            <span class="close">&times;</span>
+            <span class="close" onclick="document.getElementById('resultModal').style.display='none'">&times;</span>
             <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно входа -->
+    <div id="loginModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('loginModal').style.display='none'">&times;</span>
+            <h2>Вход</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Email или телефон:</label>
+                    <input type="text" id="loginInput" required>
+                </div>
+                <div class="form-group">
+                    <label>Пароль:</label>
+                    <input type="password" id="passwordInput" required>
+                </div>
+                <button type="submit" class="btn">Войти</button>
+            </form>
+            <p>Нет аккаунта? <a href="#" id="switchToRegister">Зарегистрироваться</a></p>
+            <p><a href="#" id="forgotPasswordLink">Забыли пароль?</a></p>
+            <p><button onclick="yandexOAuth()" class="yandex-link-btn">Войти через Яндекс</button></p>
+        </div>
+    </div>
+
+    <!-- Модальное окно регистрации -->
+    <div id="registerModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('registerModal').style.display='none'">&times;</span>
+            <h2>Регистрация</h2>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="regEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Телефон (необязательно):</label>
+                    <input type="text" id="regPhone">
+                </div>
+                <div class="form-group">
+                    <label>Пароль:</label>
+                    <input type="password" id="regPassword" required>
+                </div>
+                <button type="submit" class="btn">Зарегистрироваться</button>
+            </form>
+            <p>Уже есть аккаунт? <a href="#" id="switchToLogin">Войти</a></p>
+        </div>
+    </div>
+
+    <!-- Модальное окно восстановления пароля -->
+    <div id="forgotPasswordModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('forgotPasswordModal').style.display='none'">&times;</span>
+            <h2>Восстановление пароля</h2>
+            <form id="forgotPasswordForm">
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="forgotEmail" required>
+                </div>
+                <button type="submit" class="btn">Отправить</button>
+            </form>
+            <div id="forgotMessage" class="message" style="margin-top: 10px;"></div>
         </div>
     </div>
 

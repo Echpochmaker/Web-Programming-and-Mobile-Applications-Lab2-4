@@ -1,0 +1,11 @@
+curl -X POST http://localhost:4200/auth/register -H "Content-Type: application/json" -d "{\"email\":\"hphphphpaaaaa@gmail.com\",\"password\":\"rtrtrtrt\"}"
+
+
+если удалить пользователя
+
+docker exec -it testing_mongo mongosh -u student -p student_secure_password --authenticationDatabase admin
+
+use testing_db
+
+db.users.findOne({email: "test4@example.com"})
+db.users.deleteOne({email: "test4@example.com"})

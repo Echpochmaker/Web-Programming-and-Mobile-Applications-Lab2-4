@@ -7,9 +7,16 @@ from bson import ObjectId
 class TestService:
     
     @staticmethod
-    async def get_all(page: int = 1, limit: int = 10):
+    async def get_all(page: int = 1, limit: int = 10, owner_id: str = None):
         skip = (page - 1) * limit
+        
+        # Базовый запрос: только неудаленные тесты
         query = Test.find(Test.deleted_at == None)
+        
+        # Если передан owner_id, фильтруем по владельцу
+        if owner_id:
+            query = Test.find(Test.deleted_at == None, Test.owner_id == owner_id)
+        
         total = await query.count()
         items = await query.skip(skip).limit(limit).to_list()
         return items, total

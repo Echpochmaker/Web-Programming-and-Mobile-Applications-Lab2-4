@@ -1,0 +1,28 @@
+# 1. Вход
+curl -X POST http://localhost:4200/auth/login -H "Content-Type: application/json" -d "{\"login\":\"demo@example.com\",\"password\":\"demo123456\"}" -c cookies.txt
+
+# 2. Создать несколько тестов
+curl -X POST http://localhost:4200/tests/ -H "Content-Type: application/json" -b cookies.txt -d "{\"title\":\"Тест A\"}"
+curl -X POST http://localhost:4200/tests/ -H "Content-Type: application/json" -b cookies.txt -d "{\"title\":\"Тест B\"}"
+
+# 3. Первый GET — создаст кеш
+curl "http://localhost:4200/tests/?page=1&limit=10" -b cookies.txt
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod KEYS testing:tests:list:*
+
+# 4. Второй GET — из кеша
+curl "http://localhost:4200/tests/?page=1&limit=10" -b cookies.txt
+
+# 5. POST — инвалидация кеша
+curl -X POST http://localhost:4200/tests/ -H "Content-Type: application/json" -b cookies.txt -d "{\"title\":\"Тест C\"}"
+проверяем что кеш очистился
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod KEYS testing:tests:list:*
+
+# 6. Проверка JTI
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod KEYS testing:auth:user:*
+
+# 7. Логаут
+curl -X POST http://localhost:4200/auth/logout -b cookies.txt
+проверка что JTI удалился
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod KEYS testing:auth:user:*
+Проверка, что токен не работает
+curl http://localhost:4200/auth/whoami -b cookies.txt

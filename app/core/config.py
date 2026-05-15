@@ -35,6 +35,20 @@ class Settings(BaseSettings):
     VK_CLIENT_SECRET: Optional[str] = None
     VK_CALLBACK_URL: Optional[str] = None
 
+    # RabbitMQ
+    RABBITMQ_HOST: str = "rabbitmq"
+    RABBITMQ_PORT: int = 5672
+    RABBITMQ_USER: str = "student"
+    RABBITMQ_PASS: str = "student_secure_rabbit_pass"
+    
+    # SMTP
+    SMTP_HOST: str = "smtp.yandex.ru"
+    SMTP_PORT: int = 465
+    SMTP_USER: str = ""
+    SMTP_PASS: str = ""
+    SMTP_FROM: str = ""
+    SMTP_SECURE: bool = True
+
     class Config:
         env_file = ".env"
         extra = "ignore"

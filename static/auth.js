@@ -41,7 +41,7 @@ function createWidgetMenu() {
     // Ищем отдельный контейнер для виджета
     const widgetContainer = document.getElementById('widgetContainer');
     if (!widgetContainer) {
-        console.error('#widgetContainer не найден!');
+        console.log('#widgetContainer не найден — виджет не создаётся (главная страница)');
         return;
     }
     
@@ -177,16 +177,16 @@ function updateNavUI(isAuthenticated) {
         navUser.innerHTML = `
             <div class="user-info">
                 <span class="user-email">${escapeHtml(currentUser.email || 'Пользователь')}</span>
-                <button class="btn-logout" onclick="logout()">Выйти</button>
-                <button class="btn-logout-all" onclick="logoutAll()">Выйти из всех сессий</button>
+                <button type="button" class="btn-logout">Выйти</button>
+                <button type="button" class="btn-logout-all">Выйти из всех сессий</button>
             </div>
         `;
     } else {
         navUser.innerHTML = `
             <div class="auth-buttons">
-                <button class="btn" onclick="showLoginModal()">Вход</button>
-                <button class="btn btn-secondary" onclick="showRegisterModal()">Регистрация</button>
-                <button class="btn yandex-btn" onclick="yandexOAuth()">Яндекс ID</button>
+                <button type="button" class="btn">Вход</button>
+                <button type="button" class="btn btn-secondary">Регистрация</button>
+                <button type="button" class="btn yandex-btn">Яндекс ID</button>
             </div>
         `;
     }
@@ -356,7 +356,6 @@ window.logout = async function() {
 };
 
 window.logoutAll = async function() {
-    if (!confirm('Вы уверены, что хотите выйти из всех сессий?')) return;
     
     try {
         const response = await fetch('/auth/logout-all', {
@@ -446,6 +445,62 @@ function escapeHtml(unsafe) {
 
 // Делаем переменную доступной глобально
 window.currentUser = currentUser;
+
+// Делегирование событий для кнопок в минипрофиле
+document.addEventListener('click', async function(e) {  // ← ДОБАВИЛ async
+    // Кнопка "Вход" (в navUser)
+    if (e.target.matches('#navUser .btn') && e.target.textContent.includes('Вход')) {
+        e.preventDefault();
+        showLoginModal();
+    }
+    
+    // Кнопка "Вход" (в минипрофиле #authCard)
+    if (e.target.matches('#authCard .btn') && e.target.textContent.includes('Вход')) {
+        e.preventDefault();
+        showLoginModal();
+    }
+    
+    // Кнопка "Регистрация" (в navUser)
+    if (e.target.matches('#navUser .btn-secondary')) {
+        e.preventDefault();
+        showRegisterModal();
+    }
+    
+    // Кнопка "Регистрация" (в минипрофиле #authCard)
+    if (e.target.matches('#authCard .btn-secondary')) {
+        e.preventDefault();
+        showRegisterModal();
+    }
+    
+    // Кнопка "Яндекс ID" (в navUser)
+    if (e.target.matches('#navUser .yandex-btn')) {
+        e.preventDefault();
+        yandexOAuth();
+    }
+    
+    // Кнопка "Яндекс ID" (в минипрофиле #authCard)
+    if (e.target.matches('#authCard .yandex-btn')) {
+        e.preventDefault();
+        yandexOAuth();
+    }
+    
+    // Кнопка "Выйти"
+    if (e.target.matches('.btn-logout') && !e.target.matches('.btn-logout-all')) {
+        e.preventDefault();
+        logout();
+    }
+    
+    // Кнопка "Выйти из всех сессий"
+    if (e.target.matches('.btn-logout-all')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const confirmed = await window.showConfirm('Вы уверены, что хотите выйти из всех сессий?');
+        if (confirmed) {
+            window.logoutAll();
+        }
+    }
+});
+
 
 // ---------- Инициализация ----------
 function init() {

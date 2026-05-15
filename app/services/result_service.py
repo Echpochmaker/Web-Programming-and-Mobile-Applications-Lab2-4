@@ -178,26 +178,35 @@ class ResultService:
         
         correct_count = 0
         correct_answers_map = {}
-        
+
+        # Собираем правильные ответы с текстом
         for q in test.questions:
             if not q.deleted_at:
                 for a in q.answers:
                     if a.is_correct and not a.deleted_at:
-                        correct_answers_map[str(q.id)] = str(a.id)
+                        correct_answers_map[str(q.id)] = {
+                            "id": str(a.id),
+                            "text": a.text
+                        }
                         break
         
+        # Проверяем ответы пользователя
         for answer in result.answers:
             question_id = answer.get("question_id") if isinstance(answer, dict) else answer.question_id
             selected_id = answer.get("selected_answer_id") if isinstance(answer, dict) else answer.selected_answer_id
             
             if question_id in correct_answers_map:
-                is_correct = (selected_id == correct_answers_map[question_id])
+                correct_info = correct_answers_map[question_id]
+                is_correct = (selected_id == correct_info["id"])
+                
                 if isinstance(answer, dict):
                     answer["is_correct"] = is_correct
-                    answer["correct_answer_id"] = correct_answers_map[question_id]
+                    answer["correct_answer_id"] = correct_info["id"]
+                    answer["correct_answer_text"] = correct_info["text"]
                 else:
                     answer.is_correct = is_correct
-                    answer.correct_answer_id = correct_answers_map[question_id]
+                    answer.correct_answer_id = correct_info["id"]
+                    answer.correct_answer_text = correct_info["text"]
                 
                 if is_correct:
                     correct_count += 1
@@ -256,7 +265,7 @@ class ResultService:
             "status": result.status,
             "answers": answers_data
         }
-    
+
     @staticmethod
     async def get_result(result_id: str, user_id: str) -> Optional[dict]:
         try:

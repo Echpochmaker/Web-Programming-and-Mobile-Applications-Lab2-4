@@ -9,6 +9,10 @@ function showModal(options) {
     
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
+    // ← ВОТ ЧТО ДОБАВИТЬ: применяем тёмную тему, если она активна
+    if (document.body.classList.contains('dark-theme')) {
+        overlay.classList.add('dark-theme');
+    }
     
     let bodyHtml = '';
     

@@ -60,6 +60,17 @@ def serialize_test(test) -> dict:
         401: {"description": "Не авторизован (если требуется)"}
     }
 )
+@router.get(
+    "/",
+    response_model=PaginatedResponse,
+    summary="Получить список тестов",
+    description="Возвращает список тестов с пагинацией. Для авторизованных пользователей - только свои тесты.",
+    response_description="Список тестов с метаданными пагинации",
+    responses={
+        200: {"description": "Успешный запрос - возвращен список тестов"},
+        401: {"description": "Не авторизован (если требуется)"}
+    }
+)
 async def get_tests(
     page: int = Query(1, ge=1, description="Номер страницы (начиная с 1)"),
     limit: int = Query(10, ge=1, le=100, description="Количество элементов на странице (1-100)"),
@@ -70,8 +81,14 @@ async def get_tests(
     
     - **page**: номер страницы
     - **limit**: количество записей на странице
+    
+    Для авторизованных пользователей возвращаются только их тесты.
     """
-    cache_key = f"testing:tests:list:page:{page}:limit:{limit}"
+    # Определяем owner_id для фильтрации
+    owner_id = str(current_user.id) if current_user else None
+    
+    # Ключ кеша зависит от пагинации и пользователя
+    cache_key = f"testing:tests:list:page:{page}:limit:{limit}:owner:{owner_id or 'all'}"
     
     cached = cache.get(cache_key)
     if cached:
@@ -80,7 +97,7 @@ async def get_tests(
     
     print(f"Cache MISS: {cache_key}")
     
-    items, total = await TestService.get_all(page, limit)
+    items, total = await TestService.get_all(page, limit, owner_id)
     total_pages = (total + limit - 1) // limit
     
     serialized_items = [serialize_test(item) for item in items]

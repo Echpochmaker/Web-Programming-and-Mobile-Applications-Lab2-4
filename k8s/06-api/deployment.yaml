@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: wp-labs
+  labels:
+    app: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: wp-labs/api:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4200
+              name: http
+          env:
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: MONGO_URI
+            - name: REDIS_HOST
+              value: "redis.wp-labs.svc.cluster.local"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: REDIS_PASSWORD
+            - name: RABBITMQ_HOST
+              value: "rabbitmq.wp-labs.svc.cluster.local"
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: RABBITMQ_PASS
+            - name: MINIO_ENDPOINT
+              value: "minio.wp-labs.svc.cluster.local:9000"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: MINIO_SECRET_KEY
+            - name: MINIO_BUCKET
+              value: "testing-files"
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: JWT_ACCESS_SECRET
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: JWT_REFRESH_SECRET
+            - name: APP_ENV
+              value: "development"
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 4200
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 4200
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

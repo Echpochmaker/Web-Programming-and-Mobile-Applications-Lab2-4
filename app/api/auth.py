@@ -4,7 +4,7 @@ import httpx
 import secrets
 import os
 from datetime import datetime, timedelta
-
+from app.core.queue import QueueService
 from app.core.cache import cache
 from app.core.auth import get_current_user, get_optional_user
 from app.services.user_service import UserService
@@ -73,8 +73,22 @@ async def register(user_data: UserRegister):
         existing = await User.find_one({"phone": user_data.phone})
         if existing:
             raise HTTPException(status_code=409, detail="Phone already registered")
-    
+        
     user = await UserService.create_user(user_data)
+    
+    # Публикуем событие в RabbitMQ (асинхронно, не ждём)
+    import asyncio
+    asyncio.create_task(
+        QueueService.publish(
+            routing_key='user.registered',
+            payload={
+                "userId": str(user.id),
+                "email": user.email,
+                "displayName": user.email.split('@')[0] if user.email else 'User'
+            }
+        )
+    )
+    
     return {"message": "User created successfully", "user_id": str(user.id)}
 
 

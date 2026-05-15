@@ -43,12 +43,13 @@ async function loadAvailableTests(page = 1, search = '') {
     if (!availableTestsList) return;
     
     try {
-        availableTestsList.innerHTML = '<div class="loading-spinner">Загрузка...</div>';
-        
+        // СНАЧАЛА ПРОВЕРЯЕМ АВТОРИЗАЦИЮ
         if (!window.currentUser) {
-            availableTestsList.innerHTML = '<p class="empty-list">Войдите чтобы увидеть тесты</p>';
+            availableTestsList.innerHTML = '<p class="empty-list">🔐 Войдите чтобы увидеть доступные тесты</p>';
             return;
         }
+        
+        availableTestsList.innerHTML = '<div class="loading-spinner">Загрузка...</div>';
         
         let url = `${RESULTS_API}/available?page=${page}&limit=${limit}`;
         if (search) {
@@ -343,19 +344,45 @@ function escapeHtml(text) {
 }
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
-function init() {
+async function init() {
     console.log('Initializing take-test page');
     
-    if (window.currentUser) {
-        loadAvailableTests(1);
-    }
+    const availableTestsList = document.getElementById('availableTestsList');
     
+    // Ждём авторизацию
     window.addEventListener('auth-change', (e) => {
         console.log('auth-change event:', e.detail);
         if (e.detail.isAuthenticated) {
             loadAvailableTests(1);
+        } else {
+            if (availableTestsList) {
+                availableTestsList.innerHTML = '<p class="empty-list">🔐 Войдите чтобы увидеть доступные тесты</p>';
+            }
         }
     });
+    
+    // Проверяем текущий статус
+    if (window.currentUser) {
+        loadAvailableTests(1);
+    } else {
+        // Проверяем через API
+        try {
+            const response = await fetch('/auth/whoami', { credentials: 'include' });
+            if (response.ok) {
+                const data = await response.json();
+                window.currentUser = data.user;
+                loadAvailableTests(1);
+            } else {
+                if (availableTestsList) {
+                    availableTestsList.innerHTML = '<p class="empty-list">🔐 Войдите чтобы увидеть доступные тесты</p>';
+                }
+            }
+        } catch (error) {
+            if (availableTestsList) {
+                availableTestsList.innerHTML = '<p class="empty-list">🔐 Войдите чтобы увидеть доступные тесты</p>';
+            }
+        }
+    }
 }
 
 if (document.readyState === 'loading') {

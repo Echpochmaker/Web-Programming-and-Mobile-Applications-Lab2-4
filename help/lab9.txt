@@ -1,0 +1,66 @@
+API
+kubectl port-forward svc/api 4200:4200 -n wp-labs
+http://localhost:4200
+
+RabbitMQ
+kubectl port-forward svc/rabbitmq 15672:15672 -n wp-labs
+http://localhost:15672
+student
+student_secure_rabbit_pass_change_in_prod
+
+MinIO
+kubectl port-forward svc/minio 9000:9000 9001:9001 -n wp-labs
+http://localhost:9001
+minio_admin
+minio_secure_password_change_in_prod
+
+Mongo
+kubectl exec -it mongo-0 -n wp-labs -- mongosh -u student -p student_secure_password --authenticationDatabase admin
+use testing_db
+show collections
+db.users.find()
+
+Redis
+kubectl exec -it redis-6867dcb4c8-sqx22 -n wp-labs -- redis-cli -a redis_secure_password_change_in_prod
+
+
+тест с 2мя терминалами
+1 - kubectl logs -f api-86d47b59db-jmtch -n wp-labs
+2 - kubectl logs -f api-86d47b59db-nmxmt -n wp-labs
+3 - curl -X POST http://localhost:4200/auth/register -H "Content-Type: application/json" -d "{\"email\":\"test_k8s@example.com\",\"password\":\"test123456\"}"
+
+остановка
+kubectl delete namespace wp-labs
+проверка
+kubectl get all -n wp-labs
+
+kubectl get pods -n wp-labs
+сборка 
+docker build -t wp-labs/api:1.0.0 .
+запуск
+# 1. Пространство имён
+kubectl apply -f k8s/00-namespace.yaml
+
+# 2. Базы данных и сервисы
+kubectl apply -f k8s/02-mongodb/
+kubectl apply -f k8s/03-redis/
+kubectl apply -f k8s/04-minio/
+kubectl apply -f k8s/05-rabbitmq/
+
+# 3. Твоё приложение
+kubectl apply -f k8s/06-api/
+
+# Проверять каждые 10 секунд, пока все не станут Running
+kubectl get pods -n wp-labs
+
+перезапуск апи
+kubectl rollout restart deployment/api
+
+# Пробросить порт
+kubectl port-forward svc/api 4200:4200 -n wp-labs
+
+
+проверка 
+curl http://localhost:4200/health/ready
+curl http://localhost:4200/health/live
+curl http://localhost:4200/

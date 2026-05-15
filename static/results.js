@@ -38,7 +38,6 @@ function showUnauthorizedMessage() {
         resultsList.innerHTML = `
             <div class="empty-state">
                 <p>🔐 Войдите чтобы увидеть свои результаты</p>
-                <a href="/" class="btn">На главную</a>
             </div>
         `;
     }
@@ -75,7 +74,11 @@ async function loadResults(page = 1) {
         
         if (!response.ok) {
             if (response.status === 401) {
-                showUnauthorizedMessage();
+                resultsList.innerHTML = `
+                    <div class="empty-state">
+                        <p>🔐 Войдите чтобы увидеть свои результаты</p>
+                    </div>
+                `;
                 return;
             }
             throw new Error('Ошибка загрузки');
@@ -154,7 +157,6 @@ async function loadResults(page = 1) {
         resultsList.innerHTML = `<p class="error">❌ Ошибка: ${error.message}</p>`;
     }
 }
-
 // ---------- Просмотр деталей результата ----------
 async function viewResultDetail(resultId) {
     try {
@@ -243,25 +245,30 @@ function showResultModal(result) {
     // Удаляем старый модал если есть
     const oldModal = document.getElementById('resultModal');
     if (oldModal) oldModal.remove();
-    
+
     // Добавляем новый
     document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Получаем новый модал
+    const modal = document.getElementById('resultModal');
+    
+    // Применяем тёмную тему, если она активна
+    if (document.body.classList.contains('dark-theme')) {
+        modal.classList.add('dark-theme');
+    }
     
     // Добавляем обработчик для крестика
-    const closeBtn = document.querySelector('#resultModal .close');
+    const closeBtn = modal.querySelector('.close');
     if (closeBtn) {
         closeBtn.addEventListener('click', closeResultModal);
     }
     
     // Закрытие по клику на фон
-    const modal = document.getElementById('resultModal');
-    if (modal) {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                closeResultModal();
-            }
-        });
-    }
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeResultModal();
+        }
+    });
 }
 
 function closeResultModal() {
@@ -283,38 +290,54 @@ function escapeHtml(unsafe) {
 // ---------- Инициализация ----------
 async function init() {
     console.log('Results page initialized');
-    console.log('window.currentUser on init:', window.currentUser);
     
-    // Функция для загрузки результатов
-    const loadResultsIfAuthenticated = async () => {
-        if (window.currentUser) {
-            console.log('✅ User found, loading results');
-            await loadResults(1);
+    const resultsList = document.getElementById('resultsList');
+    
+    // Ждём авторизацию
+    window.addEventListener('auth-change', (e) => {
+        console.log('auth-change event received', e.detail);
+        if (e.detail.isAuthenticated) {
+            loadResults(1);
         } else {
-            console.log('❌ No user found, waiting for auth');
+            if (resultsList) {
+                resultsList.innerHTML = `
+                    <div class="empty-state">
+                        <p>🔐 Войдите чтобы увидеть свои результаты</p>
+                    </div>
+                `;
+            }
         }
-    };
+    });
     
-    // Если пользователь уже есть, загружаем сразу
+    // Проверяем текущий статус
     if (window.currentUser) {
-        await loadResultsIfAuthenticated();
+        loadResults(1);
     } else {
-        // Иначе ждем событие авторизации
-        console.log('Waiting for auth-change event...');
-        window.addEventListener('auth-change', async (event) => {
-            console.log('auth-change event received', event.detail);
-            if (event.detail.isAuthenticated) {
-                await loadResultsIfAuthenticated();
+        // Проверяем через API
+        try {
+            const response = await fetch('/auth/whoami', { credentials: 'include' });
+            if (response.ok) {
+                const data = await response.json();
+                window.currentUser = data.user;
+                loadResults(1);
+            } else {
+                if (resultsList) {
+                    resultsList.innerHTML = `
+                        <div class="empty-state">
+                            <p>🔐 Войдите чтобы увидеть свои результаты</p>
+                        </div>
+                    `;
+                }
             }
-        });
-        
-        // Также проверяем через 1 секунду
-        setTimeout(async () => {
-            if (window.currentUser && !document.getElementById('resultsList')?.innerHTML.includes('результат')) {
-                console.log('Delayed check: user found, loading results');
-                await loadResultsIfAuthenticated();
+        } catch (error) {
+            if (resultsList) {
+                resultsList.innerHTML = `
+                    <div class="empty-state">
+                        <p>🔐 Войдите чтобы увидеть свои результаты</p>
+                    </div>
+                `;
             }
-        }, 1000);
+        }
     }
     
     // Закрытие по клику вне окна

@@ -3,12 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from app.api import tests, questions, answers, auth, results, files, profile
+from app.api import tests, questions, answers, auth, results, files, profile, health
 from app.core.cache import cache
 from app.core.database_mongo import init_mongodb
 import os
 from contextlib import asynccontextmanager
-
+from app.core.queue import QueueService
+from app.core.queue_consumer import QueueConsumer
+import asyncio
 # Определяем окружение
 APP_ENV = os.getenv("APP_ENV", "development")
 
@@ -17,10 +19,22 @@ async def lifespan(app: FastAPI):
     # Startup
     print("=== STARTING UP ===")
     await init_mongodb()
-    print("=== MongoDB connected and Beanie initialized ===")
+    print("=== MongoDB connected ===")
+    
+    # Подключаем RabbitMQ
+    try:
+        await QueueService.connect()
+        print("=== RabbitMQ connected ===")
+        asyncio.create_task(QueueConsumer.start())
+        print("=== Consumer started ===")
+    except Exception as e:
+        print(f"RabbitMQ connection failed: {e}")
+    
     yield
+    
     # Shutdown
     print("=== SHUTTING DOWN ===")
+    await QueueService.close()
 
 # Создаем приложение
 app = FastAPI(
@@ -56,6 +70,7 @@ app.include_router(auth.router)
 app.include_router(results.router)
 app.include_router(files.router)
 app.include_router(profile.router)
+app.include_router(health.router)
 
 # ========== СТРАНИЦЫ ==========
 
@@ -73,6 +88,11 @@ async def take_test_page(request: Request):
 async def results_page(request: Request):
     """Страница результатов"""
     return templates.TemplateResponse("results.html", {"request": request})
+@app.get("/reset-password", response_class=HTMLResponse)
+
+async def reset_password_page(request: Request):
+    """Страница сброса пароля"""
+    return templates.TemplateResponse("reset-password.html", {"request": request})
 
 @app.get("/cache-test")
 async def cache_test():

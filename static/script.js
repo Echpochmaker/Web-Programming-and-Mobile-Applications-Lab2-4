@@ -29,19 +29,17 @@ const loginPromptCard = document.getElementById('loginPromptCard');
 function refreshUI() {
     console.log('refreshUI, window.currentUser =', window.currentUser);
     
+    const navProfile = document.getElementById('navProfile');
+    
     if (window.currentUser) {
-        // Пользователь авторизован
         if (createTestCard) createTestCard.style.display = 'block';
         if (loginPromptCard) loginPromptCard.style.display = 'none';
-        
-        // Загружаем тесты
+        if (navProfile) navProfile.innerHTML = '';
         loadTests(1);
     } else {
-        // Пользователь не авторизован
         if (createTestCard) createTestCard.style.display = 'none';
         if (loginPromptCard) loginPromptCard.style.display = 'block';
-        
-        // Показываем сообщение в списке тестов
+        if (navProfile) navProfile.innerHTML = '';
         if (testsListDiv) {
             testsListDiv.innerHTML = '<p class="empty-list">Войдите чтобы увидеть тесты</p>';
         }
@@ -85,7 +83,6 @@ async function loadTests(page = 1) {
             return;
         }
         
-        // Если пользователь не авторизован, показываем сообщение
         if (!window.currentUser) {
             testsListDiv.innerHTML = '<p class="empty-list">Войдите чтобы увидеть тесты</p>';
             return;
@@ -120,8 +117,11 @@ function displayTests(tests, meta, currentPageNum) {
         return;
     }
 
-    // Фильтруем только тесты текущего пользователя
-    const myTests = tests.filter(test => window.currentUser && test.owner_id === window.currentUser.id);
+    const myTests = tests.filter(test => {
+        return window.currentUser && test.owner_id === window.currentUser.id;
+    });
+    
+    console.log('Всего тестов:', tests.length, 'Мои тесты:', myTests.length);
     
     if (myTests.length === 0) {
         testsListDiv.innerHTML = '<p class="empty-list">У вас пока нет созданных тестов</p>';
@@ -130,11 +130,14 @@ function displayTests(tests, meta, currentPageNum) {
 
     let html = '';
     myTests.forEach(test => {
+        const createdDate = test.created_at ? new Date(test.created_at).toLocaleDateString('ru-RU') : '';
+        
         html += `
             <div class="test-item" data-id="${test.id}">
                 <div class="test-info" onclick="showTestEdit('${test.id}')" style="cursor: pointer;">
                     <h3>${escapeHtml(test.title)}</h3>
-                    <p>${escapeHtml(test.description || '')}</p>
+                    ${test.description ? `<p>${escapeHtml(test.description)}</p>` : ''}
+                    ${createdDate ? `<span class="test-date">📅 ${createdDate}</span>` : ''}
                 </div>
                 <div class="test-actions">
                     <button class="btn-delete" onclick="deleteTest('${test.id}'); event.stopPropagation();">Удалить</button>
@@ -143,16 +146,15 @@ function displayTests(tests, meta, currentPageNum) {
         `;
     });
 
-    // Пагинация
     const totalPages = Math.ceil(meta.total / limit);
     if (totalPages > 1) {
         html += '<div class="pagination">';
         if (currentPageNum > 1) {
-            html += `<button onclick="loadTests(${currentPageNum - 1})">Предыдущая</button>`;
+            html += `<button onclick="loadTests(${currentPageNum - 1})">← Предыдущая</button>`;
         }
         html += `<span>Страница ${currentPageNum} из ${totalPages}</span>`;
         if (currentPageNum < totalPages) {
-            html += `<button onclick="loadTests(${currentPageNum + 1})">Следующая</button>`;
+            html += `<button onclick="loadTests(${currentPageNum + 1})">Следующая →</button>`;
         }
         html += '</div>';
     }
@@ -160,7 +162,6 @@ function displayTests(tests, meta, currentPageNum) {
     testsListDiv.innerHTML = html;
 }
 
-// Удаление теста
 window.deleteTest = async function(id) {
     const confirmed = await window.showConfirm('Вы уверены, что хотите удалить этот тест?');
     if (!confirmed) return;
@@ -177,7 +178,6 @@ window.deleteTest = async function(id) {
     }
 };
 
-// Создание теста
 if (createTestForm) {
     createTestForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -204,7 +204,6 @@ if (createTestForm) {
     });
 }
 
-// ---------- Работа с конкретным тестом ----------
 async function loadTestForEdit(testId) {
     console.log('Загрузка свежих данных теста ID:', testId);
     
@@ -281,7 +280,6 @@ function renderAnswers(answers, questionId) {
     return html;
 }
 
-// Сохранение изменений теста
 if (editTestForm) {
     editTestForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -308,7 +306,6 @@ if (editTestForm) {
     });
 }
 
-// Добавить вопрос
 if (addQuestionBtn) {
     addQuestionBtn.addEventListener('click', async () => {
         const result = await window.showAddQuestionModal();
@@ -335,7 +332,6 @@ if (addQuestionBtn) {
     });
 }
 
-// Удаление вопроса
 window.deleteQuestion = async function(questionId) {
     const confirmed = await window.showConfirm('Вы уверены, что хотите удалить этот вопрос?');
     if (!confirmed) return;
@@ -386,7 +382,6 @@ window.updateQuestionText = async function(questionId, newText) {
     }
 };
 
-// Добавление ответа
 window.addAnswer = async function(questionId, testId) {
     const result = await window.showAddAnswerModal();
     if (!result || !result.text) return;
@@ -455,7 +450,6 @@ window.toggleCorrect = async function(answerId, checked, questionId) {
     }
 };
 
-// Удаление ответа
 window.deleteAnswer = async function(answerId, questionId) {
     const confirmed = await window.showConfirm('Вы уверены, что хотите удалить этот ответ?');
     if (!confirmed) return;
@@ -472,7 +466,6 @@ window.deleteAnswer = async function(answerId, questionId) {
     }
 };
 
-// Защита от XSS
 function escapeHtml(unsafe) {
     if (!unsafe) return unsafe;
     return unsafe
@@ -487,11 +480,9 @@ function escapeHtml(unsafe) {
 function initialize() {
     console.log('Инициализация script.js...');
     
-    // Если пользователь уже авторизован, обновляем UI
     if (window.currentUser) {
         refreshUI();
     } else {
-        // Ждем событие авторизации
         window.addEventListener('auth-change', function(event) {
             if (event.detail.isAuthenticated) {
                 refreshUI();
@@ -500,14 +491,187 @@ function initialize() {
     }
 }
 
-// Запускаем после загрузки DOM
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initialize);
 } else {
     initialize();
 }
 
-// Экспортируем функции
+// ========== ФУНКЦИИ ДЛЯ МИНИ-ПРОФИЛЯ ==========
+
+async function loadProfile() {
+    try {
+        const response = await fetch('/profile/', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const profile = await response.json();
+            displayProfile(profile);
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки профиля:', error);
+    }
+}
+
+function displayProfile(profile) {
+    const profileCard = document.getElementById('profileCard');
+    const authCard = document.getElementById('authCard');
+    const logoutSection = document.getElementById('logoutSection');
+    const profileAvatar = document.getElementById('profileAvatar');
+    const profilePlaceholder = document.getElementById('profileAvatarPlaceholder');
+    const profileName = document.getElementById('profileName');
+    const profileEmail = document.getElementById('profileEmail');
+    const removeAvatarBtn = document.getElementById('removeAvatarBtn');
+    
+    if (profileCard) profileCard.style.display = 'block';
+    if (authCard) authCard.style.display = 'none';
+    if (logoutSection) logoutSection.style.display = 'flex';
+    
+    if (profileAvatar && profilePlaceholder) {
+        if (profile.avatar_file_id) {
+            profileAvatar.src = `/files/${profile.avatar_file_id}`;
+            profileAvatar.style.display = 'block';
+            profilePlaceholder.style.display = 'none';
+        } else {
+            profileAvatar.style.display = 'none';
+            profilePlaceholder.style.display = 'flex';
+            const firstLetter = profile.email ? profile.email[0].toUpperCase() : '?';
+            profilePlaceholder.textContent = firstLetter;
+        }
+    }
+    
+    if (profileName) {
+        profileName.textContent = profile.email ? profile.email.split('@')[0] : 'Пользователь';
+    }
+    
+    if (profileEmail) {
+        profileEmail.textContent = profile.email || '';
+    }
+    
+    if (removeAvatarBtn) {
+        removeAvatarBtn.style.display = profile.avatar_file_id ? 'block' : 'none';
+    }
+}
+
+async function uploadAvatar(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch('/files/', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Ошибка загрузки');
+        }
+        
+        const data = await response.json();
+        return data.file_id;
+    } catch (error) {
+        alert('Ошибка загрузки аватара: ' + error.message);
+        return null;
+    }
+}
+
+async function setAvatar(fileId) {
+    try {
+        const response = await fetch('/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ avatar_file_id: fileId }),
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            loadProfile();
+        }
+    } catch (error) {
+        console.error('Ошибка установки аватара:', error);
+    }
+}
+
+async function removeAvatar() {
+    const confirmed = await window.showConfirm('Удалить аватар?');
+    if (!confirmed) return;
+    
+    try {
+        const response = await fetch('/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ avatar_file_id: null }),
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            loadProfile();
+        }
+    } catch (error) {
+        console.error('Ошибка удаления аватара:', error);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const avatarUpload = document.getElementById('avatarUpload');
+    if (avatarUpload) {
+        avatarUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Файл слишком большой. Максимум 10 MB.');
+                return;
+            }
+            
+            if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
+                alert('Только PNG, JPEG, JPG.');
+                return;
+            }
+            
+            const fileId = await uploadAvatar(file);
+            if (fileId) {
+                await setAvatar(fileId);
+            }
+            
+            avatarUpload.value = '';
+        });
+    }
+    
+    const removeAvatarBtn = document.getElementById('removeAvatarBtn');
+    if (removeAvatarBtn) {
+        removeAvatarBtn.addEventListener('click', removeAvatar);
+    }
+    
+    if (window.currentUser) {
+        loadProfile();
+    } else {
+        window.addEventListener('auth-change', (e) => {
+            if (e.detail.isAuthenticated) {
+                loadProfile();
+            }
+        });
+    }
+});
+
+const originalRefreshUI = refreshUI;
+refreshUI = function() {
+    originalRefreshUI();
+    if (window.currentUser) {
+        loadProfile();
+        document.getElementById('authCard').style.display = 'none';
+        document.getElementById('logoutSection').style.display = 'flex';
+    } else {
+        document.getElementById('profileCard').style.display = 'none';
+        document.getElementById('authCard').style.display = 'block';
+        document.getElementById('logoutSection').style.display = 'none';
+    }
+};
+
+// ========== ЭКСПОРТ (ТОЛЬКО ФУНКЦИИ ТЕСТОВ) ==========
 window.showTestEdit = showTestEdit;
 window.deleteTest = deleteTest;
 window.deleteQuestion = deleteQuestion;

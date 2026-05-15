@@ -1,23 +1,27 @@
-# Лабораторные работы №2-7: REST API для системы онлайн-тестирования с авторизацией, кешированием, документированием, MongoDB и MinIO
+# Лабораторные работы №2-9: REST API для системы онлайн-тестирования
 
-Данный проект представляет собой RESTful веб-сервис для управления тестами, вопросами и вариантами ответов с полноценной системой аутентификации, авторизации, кешированием на Redis, автоматически сгенерированной документацией OpenAPI (Swagger), документоориентированной базой данных MongoDB и объектным хранилищем файлов MinIO.
+Данный проект представляет собой RESTful веб-сервис для управления тестами, вопросами и вариантами ответов с полноценной системой аутентификации, авторизации, кешированием на Redis, автоматически сгенерированной документацией OpenAPI (Swagger), документоориентированной базой данных MongoDB, объектным хранилищем файлов MinIO, асинхронной обработкой событий через RabbitMQ и развёртыванием в Kubernetes.
 
-Реализован на **FastAPI** с использованием **Beanie ODM** (MongoDB), **Redis** для кеширования, **MinIO** для хранения файлов. Вся инфраструктура запускается через **Docker Compose**, что обеспечивает лёгкое развёртывание и изоляцию сервисов.
+Реализован на **FastAPI** с использованием **Beanie ODM** (MongoDB), **Redis** для кеширования, **MinIO** для хранения файлов, **RabbitMQ** для асинхронной обработки, **Kubernetes** для оркестрации. Вся инфраструктура запускается через **Docker Compose** (локально) или **kubectl** (в Kubernetes).
 
 
 ## Содержание
 
 1. [Основные возможности по лабораторным работам](#основные-возможности-по-лабораторным-работам)
 2. [Технологический стек](#технологический-стек)
-3. [Запуск проекта](#запуск-проекта)
-4. [Переменные окружения](#переменные-окружения)
-5. [API эндпоинты](#api-эндпоинты)
-6. [Документация API (Swagger/OpenAPI)](#документация-api-swaggeropenapi)
-7. [Кеширование данных с Redis](#кеширование-данных-с-redis)
-8. [MongoDB: документоориентированная СУБД](#mongodb-документоориентированная-субд)
-9. [MinIO: объектное хранилище файлов](#minio-объектное-хранилище-файлов)
-10. [Веб-интерфейс](#веб-интерфейс)
-11. [Авторы](#авторы)
+3. [Запуск проекта (Docker Compose)](#запуск-проекта-docker-compose)
+4. [Запуск проекта (Kubernetes)](#запуск-проекта-kubernetes)
+5. [Переменные окружения](#переменные-окружения)
+6. [API эндпоинты](#api-эндпоинты)
+7. [Health Check эндпоинты (ЛР №9)](#health-check-эндпоинты)
+8. [RabbitMQ: асинхронная обработка событий (ЛР №8)](#rabbitmq-асинхронная-обработка-событий)
+9. [Документация API (Swagger/OpenAPI)](#документация-api-swaggeropenapi)
+10. [Кеширование данных с Redis](#кеширование-данных-с-redis)
+11. [MongoDB: документоориентированная СУБД](#mongodb-документоориентированная-субд)
+12. [MinIO: объектное хранилище файлов](#minio-объектное-хранилище-файлов)
+13. [Веб-интерфейс](#веб-интерфейс)
+14. [Безопасность](#безопасность)
+15. [Авторы](#авторы)
 
 
 ## Основные возможности по лабораторным работам
@@ -84,6 +88,24 @@
 - **Кеширование метаданных** — метаданные файлов кешируются в Redis (TTL 300 сек)
 - **Проверка владения** — при установке аватара проверяется, что файл принадлежит пользователю
 
+### Лабораторная работа №8 — Асинхронная обработка событий с использованием RabbitMQ
+
+- **Публикация события** `user.registered` при успешной регистрации пользователя
+- **Фоновый consumer** для асинхронной обработки сообщений
+- **Отправка приветственного email** через SMTP Яндекса
+- **Retry-механизм** — до 3 повторных попыток при временных ошибках SMTP
+- **Dead Letter Queue** — `wp.auth.user.registered.dlq` для сообщений после исчерпания попыток
+- **Идемпотентность** — защита от повторной отправки через `eventId` в Redis (TTL 24 часа)
+- **Persistent messages** — сообщения сохраняются на диск (`delivery_mode=PERSISTENT`)
+- **Durable queues** — очереди не удаляются при перезапуске RabbitMQ
+
+### Лабораторная работа №9 — Развёртывание в Kubernetes
+- **Health Check эндпоинты** (`/health/live`, `/health/ready`, `/health`)
+- **Kubernetes-манифесты** для всех сервисов
+- **Liveness/Readiness Probes** для автоматического восстановления
+- **Горизонтальное масштабирование** (`kubectl scale --replicas=4`)
+- **Распределённая блокировка** через Redis при регистрации
+- **Docker Desktop Kubernetes** как среда развёртывания
 
 ## 🛠 Технологический стек
 
@@ -96,12 +118,14 @@
 | **СУБД** | MongoDB 6 | Документоориентированная база данных |
 | **Кеш** | Redis 7 | Кеширование данных и JTI токенов |
 | **Объектное хранилище** | MinIO | Хранение пользовательских файлов |
+| **Брокер сообщений** | RabbitMQ 3.12 | Асинхронная обработка событий |
+| **SMTP клиент** | aiosmtplib | Отправка приветственных писем |
+| **RabbitMQ клиент** | aio-pika | Асинхронная работа с RabbitMQ |
+| **Оркестрация** | Kubernetes (Docker Desktop) | Развёртывание и масштабирование |
 | **Контейнеризация** | Docker / Docker Compose | Запуск и оркестрация сервисов |
 | **Хеширование паролей** | bcrypt | Безопасное хранение паролей |
 | **JWT** | PyJWT / python-jose | Генерация и проверка токенов |
 | **OAuth клиент** | httpx | Запросы к Yandex OAuth |
-| **Redis клиент** | redis-py | Работа с Redis из Python |
-| **MinIO клиент** | minio-py | Работа с MinIO из Python |
 
 
 ## Запуск проекта
@@ -128,6 +152,7 @@ docker-compose up --build
 4. **Проверьте работу**:
 - API: `http://localhost:4200`
 - Swagger UI: `http://localhost:4200/api/docs`
+- RabbitMQ Management UI: `http://localhost:15672` (логин/пароль из `.env`)
 - MinIO Console: `http://localhost:9001`
 - Веб-интерфейс: `http://localhost:4200`
 
@@ -135,6 +160,57 @@ docker-compose up --build
 ```bash
 docker-compose down
 ```
+##  Запуск проекта (Kubernetes)
+
+##  Предварительные требования
+##  Docker Desktop с включённым Kubernetes
+
+kubectl (входит в Docker Desktop)
+
+## Инструкция
+Сборка образа:
+
+
+docker build -t wp-labs/api:1.0.0 .
+## Развёртывание:
+
+
+kubectl apply -f k8s/00-namespace.yaml
+kubectl apply -f k8s/02-mongodb/
+kubectl apply -f k8s/03-redis/
+kubectl apply -f k8s/04-minio/
+kubectl apply -f k8s/05-rabbitmq/
+kubectl apply -f k8s/06-api/
+## Проверка:
+
+
+kubectl get all -n wp-labs
+kubectl get pods -n wp-labs
+Проброс порта:
+
+
+kubectl port-forward svc/api 4200:4200 -n wp-labs
+Масштабирование:
+
+kubectl scale deployment/api --replicas=4 -n wp-labs
+Очистка:
+
+kubectl delete namespace wp-labs
+Health Check эндпоинты (ЛР №9)
+Эндпоинт	Назначение	Проверяет
+GET /health/live	Liveness Probe	Процесс жив?
+GET /health/ready	Readiness Probe	MongoDB, Redis, RabbitMQ, MinIO
+GET /health	Общий статус	Информация о сервисе
+Примеры:
+
+
+curl http://localhost:4200/health/live
+# → {"status":"ok"}
+
+curl http://localhost:4200/health/ready
+# → {"status":"ok","checks":{"mongodb":"ok","redis":"ok","rabbitmq":"ok","minio":"ok"}}
+
+
 
 ### Структура запущенных контейнеров
 
@@ -143,7 +219,158 @@ docker-compose down
 | `testing_mongo` | 27017 | MongoDB |
 | `testing_redis` | 6379 | Redis |
 | `testing_minio` | 9000 (API), 9001 (Console) | MinIO |
+| `testing_rabbitmq` | 5672 (AMQP), 15672 (UI) | RabbitMQ |
 | `testing_app` | 4200 | FastAPI приложение |
+
+
+## Переменные окружения
+
+```bash
+# MongoDB
+DB_USER=student
+DB_PASSWORD=student_secure_password
+MONGO_URI=mongodb://student:student_secure_password@mongo:27017/testing_db?authSource=admin
+
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=redis_secure_password_change_in_prod
+CACHE_TTL_DEFAULT=300
+
+# JWT
+JWT_ACCESS_SECRET=super_secret_access_key_change_in_prod_12345
+JWT_REFRESH_SECRET=super_secret_refresh_key_change_in_prod_67890
+
+# Yandex OAuth
+YANDEX_CLIENT_ID=your_yandex_client_id
+YANDEX_CLIENT_SECRET=your_yandex_client_secret
+YANDEX_CALLBACK_URL=http://localhost:4200/auth/yandex/callback
+
+# MinIO
+MINIO_ENDPOINT=minio:9000
+MINIO_ACCESS_KEY=minio_admin
+MINIO_SECRET_KEY=minio_secure_password_change_in_prod
+MINIO_BUCKET=testing-files
+MINIO_USE_SSL=false
+MAX_FILE_SIZE=10485760
+
+# RabbitMQ
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_USER=student
+RABBITMQ_PASS=student_secure_rabbit_pass
+
+# SMTP (Яндекс)
+SMTP_HOST=smtp.yandex.ru
+SMTP_PORT=465
+SMTP_USER=your_email@yandex.ru
+SMTP_PASS=your_app_password
+SMTP_FROM=your_email@yandex.ru
+SMTP_SECURE=true
+
+# App
+APP_ENV=development
+```
+
+## RabbitMQ: асинхронная обработка событий (ЛР №8)
+
+### Архитектура взаимодействия
+
+```
+Клиент → POST /auth/register
+           ↓
+      Auth Service → Сохранение в MongoDB
+           ↓
+      QueueService.publish() → RabbitMQ (app.events)
+           ↓
+      Ответ 201 Created (быстрый)
+
+В фоне:
+      RabbitMQ → wp.auth.user.registered
+           ↓
+      QueueConsumer → EmailService.send_welcome_email()
+           ↓
+      SMTP Яндекс → Письмо на почту
+           ↓
+      Ack → Сообщение удалено из очереди
+```
+
+### Сущности RabbitMQ
+
+| Сущность | Имя | Тип | Свойства |
+|----------|-----|-----|----------|
+| Exchange | `app.events` | Direct | Durable |
+| Очередь | `wp.auth.user.registered` | Classic | Durable, DLX |
+| DLX | `app.dlx` | Direct | Durable |
+| DLQ | `wp.auth.user.registered.dlq` | Classic | Durable |
+
+### Структура сообщения
+
+```json
+{
+  "eventId": "550e8400-e29b-41d4-a716-446655440000",
+  "eventType": "user.registered",
+  "timestamp": "2026-05-03T10:30:00Z",
+  "payload": {
+    "userId": "69f75da9f0e1b58ed384e546",
+    "email": "user@example.com",
+    "displayName": "User"
+  },
+  "metadata": {
+    "attempt": 1,
+    "sourceService": "auth-service"
+  }
+}
+```
+
+### Гарантии доставки
+
+| Механизм | Реализация |
+|----------|------------|
+| **Persistent messages** | `delivery_mode=aio_pika.DeliveryMode.PERSISTENT` — запись на диск |
+| **Durable queues** | `durable=True` — очереди выживают после перезапуска |
+| **Ack** | `message.ack()` только после успешной отправки email |
+| **Retry** | До 3 попыток при ошибке SMTP |
+| **Dead Letter Queue** | `wp.auth.user.registered.dlq` после 3 неудач |
+| **Идемпотентность** | `eventId` сохраняется в Redis на 24 часа |
+
+### Ключи Redis для идемпотентности
+
+```
+testing:email:sent:{eventId} → TTL 86400 сек (24 часа)
+```
+
+### Тестирование
+
+**Регистрация пользователя:**
+```bash
+curl -X POST http://localhost:4200/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"test123456"}'
+```
+
+**Проверка RabbitMQ UI:**
+Откройте `http://localhost:15672` (логин: `student`, пароль из `.env`). Перейдите в Queues → `wp.auth.user.registered`. Сообщение должно появиться и исчезнуть после обработки.
+
+**Проверка почты:**
+На указанный email должно прийти приветственное письмо с темой "Добро пожаловать в Систему Тестирования!".
+
+**Проверка DLQ (с неверным SMTP паролем):**
+1. Укажите неверный `SMTP_PASS` в `.env`
+2. Зарегистрируйте пользователя
+3. После 3 попыток сообщение попадёт в `wp.auth.user.registered.dlq`
+
+### Проверка через Redis CLI
+
+```bash
+docker exec -it testing_redis redis-cli --pass redis_secure_password_change_in_prod
+
+# Просмотр ключей идемпотентности
+KEYS testing:email:sent:*
+
+# Просмотр всех ключей приложения
+KEYS testing:*
+```
 
 
 ## Документация API (Swagger/OpenAPI) — ЛР №4
@@ -167,6 +394,7 @@ docker-compose down
 | `testing:users:profile:{user_id}` | Кешированный профиль пользователя | 300 сек |
 | `testing:auth:user:{user_id}:access:{jti}` | JTI активного Access токена | 900 сек |
 | `testing:files:{file_id}:meta` | Метаданные файла | 300 сек |
+| `testing:email:sent:{event_id}` | Идемпотентность email (ЛР №8) | 86400 сек |
 
 ### Проверка работы кеша через Redis CLI
 
@@ -204,13 +432,6 @@ db.files.find().pretty()
 | POST | `/files/` | Загрузка файла (multipart/form-data) | Авторизованные пользователи |
 | GET | `/files/{file_id}` | Скачивание файла | Только владелец |
 | DELETE | `/files/{file_id}` | Удаление файла | Только владелец |
-| GET | `/profile/` | Получение профиля | Авторизованные пользователи |
-| POST | `/profile/` | Обновление профиля (включая `avatar_file_id`) | Авторизованные пользователи |
-
-### Валидация файлов
-
-- Разрешённые MIME-типы: `image/png`, `image/jpeg`, `image/jpg`
-- Максимальный размер: 10 MB (настраивается через `MAX_FILE_SIZE` в `.env`)
 
 ### Примеры запросов
 
@@ -222,11 +443,6 @@ curl -X POST http://localhost:4200/files/ \
   -F "file=@avatar.jpg"
 ```
 
-**Скачивание файла:**
-```bash
-curl http://localhost:4200/files/{file_id} -b cookies.txt --output downloaded.jpg
-```
-
 **Обновление профиля с аватаром:**
 ```bash
 curl -X POST http://localhost:4200/profile/ \
@@ -235,21 +451,10 @@ curl -X POST http://localhost:4200/profile/ \
   -d '{"avatar_file_id": "your-file-id"}'
 ```
 
-**Удаление файла:**
+**Проверка файлов в MinIO:**
 ```bash
-curl -X DELETE http://localhost:4200/files/{file_id} -b cookies.txt
-```
-
-### Проверка файлов в MinIO
-
-```bash
-# Войти в контейнер MinIO
 docker exec -it testing_minio sh
-
-# Настроить клиент
 mc alias set local http://localhost:9000 minio_admin minio_secure_password_change_in_prod
-
-# Просмотреть файлы в бакете
 mc ls local/testing-files/
 ```
 
@@ -276,155 +481,14 @@ mc ls local/testing-files/
 | Токены в БД | Хранятся только хеши |
 | Cookies | HttpOnly, SameSite |
 | Redis | Защищен паролем |
+| RabbitMQ | Защищен паролем (не guest) |
 | MinIO | Доступ только через API с авторизацией |
 | Валидация файлов | MIME-типы и размер |
+| Сообщения RabbitMQ | Без паролей, токенов, хешей |
 
 
-## 🐳 Полный `docker-compose.yml`
-
-```yaml
-services:
-  mongo:
-    image: mongo:6
-    container_name: testing_mongo
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${DB_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - testing_network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: testing_redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - testing_network
-    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "--pass", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  minio:
-    image: minio/minio:latest
-    container_name: testing_minio
-    restart: unless-stopped
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-    networks:
-      - testing_network
-    command: server /data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  app:
-    build: .
-    container_name: testing_app
-    restart: unless-stopped
-    environment:
-      MONGO_URI: ${MONGO_URI}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      CACHE_TTL_DEFAULT: 300
-      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID}
-      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET}
-      YANDEX_CALLBACK_URL: ${YANDEX_CALLBACK_URL}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      JWT_ACCESS_EXPIRATION: 15m
-      JWT_REFRESH_EXPIRATION: 7d
-      APP_ENV: development
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      MINIO_BUCKET: ${MINIO_BUCKET}
-      MINIO_USE_SSL: "false"
-      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-10485760}
-    ports:
-      - "4200:4200"
-    depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    networks:
-      - testing_network
-    command: uvicorn app.main:app --host 0.0.0.0 --port 4200
-
-volumes:
-  mongo_data:
-  redis_data:
-  minio_data:
-
-networks:
-  testing_network:
-```
-
-
-## Пример `.env` файла
-
-```bash
-# MongoDB
-DB_USER=student
-DB_PASSWORD=student_secure_password
-MONGO_URI=mongodb://student:student_secure_password@mongo:27017/testing_db?authSource=admin
-
-# Redis
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_PASSWORD=redis_secure_password_change_in_prod
-CACHE_TTL_DEFAULT=300
-
-# JWT
-JWT_ACCESS_SECRET=super_secret_access_key_change_in_prod_12345
-JWT_REFRESH_SECRET=super_secret_refresh_key_change_in_prod_67890
-
-# Yandex OAuth
-YANDEX_CLIENT_ID=your_yandex_client_id
-YANDEX_CLIENT_SECRET=your_yandex_client_secret
-YANDEX_CALLBACK_URL=http://localhost:4200/auth/yandex/callback
-
-# MinIO
-MINIO_ENDPOINT=minio:9000
-MINIO_ACCESS_KEY=minio_admin
-MINIO_SECRET_KEY=minio_secure_password_change_in_prod
-MINIO_BUCKET=testing-files
-MINIO_USE_SSL=false
-MAX_FILE_SIZE=10485760
-
-# Appы
-APP_ENV=development
-
-
-
-|    Студент    |      Группа     |
-|---------------|-----------------|
+## Авторы
+| Студент | Группа |
+|---------|--------|
 | Иванов Андрей | 090304-РПИа-у24 |
-| Бобылев Павел | 020303-АИСа-у24 |
+| Бобылев Павел | 020302-АИСа-у24 |

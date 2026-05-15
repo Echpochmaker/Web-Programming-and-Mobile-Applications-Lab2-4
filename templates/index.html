@@ -6,97 +6,138 @@
     <meta http-equiv="Content-Security-Policy" content="connect-src 'self' passport.yandex.ru mc.yandex.ru yandex.ru autofill.yandex.ru wss://mc.yandex.ru;">
     <title>Система тестирования</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 </head>
 <body>
     <!-- Навигационная панель -->
     <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-logo">
-                <h2>📚 Тесты</h2>
-            </div>
-            <div class="nav-links">
-                <a href="/" class="nav-link">Мои тесты</a>
-                <a href="/take-test" class="nav-link">Пройти тест</a>
-                <a href="/results-page" class="nav-link">📊 Результаты</a>
-            </div>
-            <div class="nav-right">
-                <div class="widget-container" id="widgetContainer"></div>
-                <div class="nav-user" id="navUser">
-                    <div class="loading-spinner">Загрузка...</div>
-                </div>
-            </div>
+    <div class="nav-container">
+        <div class="nav-logo">
+            <h2>📚 Тесты</h2>
         </div>
-    </nav>
+        <div class="nav-links">
+            <a href="/" class="nav-link active">Мои тесты</a>
+            <a href="/take-test" class="nav-link">Пройти тест</a>
+            <a href="/results-page" class="nav-link">📊 Результаты</a>
+        </div>
+        <div class="nav-right">
+            
+            <div class="widget-container" id="widgetContainer"></div>
+        </div>
+    </div>
+</nav>
 
     <div class="container">
-        <h1>Система тестирования</h1>
-        
-        <!-- Кнопка возврата к списку -->
-        <button id="backToTestsBtn" class="btn btn-secondary" style="display: none;">← К списку тестов</button>
+        <div class="main-layout">
+            <!-- ЛЕВАЯ КОЛОНКА - ОСНОВНОЙ КОНТЕНТ -->
+            <div class="content-area">
+                <h1>Система тестирования</h1>
+                
+                <!-- Кнопка возврата к списку -->
+                <button id="backToTestsBtn" class="btn btn-secondary" style="display: none;">← К списку тестов</button>
 
-        <!-- Режим: список тестов -->
-        <div id="testsListMode">
-            <!-- Форма создания нового теста (только для авторизованных) -->
-            <div class="card" id="createTestCard" style="display: none;">
-                <h2>Создать новый тест</h2>
-                <form id="createTestForm">
-                    <div class="form-group">
-                        <label for="title">Название теста:</label>
-                        <input type="text" id="title" name="title" required>
+                <!-- Режим: список тестов -->
+                <div id="testsListMode">
+                    <!-- Форма создания нового теста -->
+                    <div class="card" id="createTestCard" style="display: none;">
+                        <h2>Создать новый тест</h2>
+                        <form id="createTestForm">
+                            <div class="form-group">
+                                <label for="title">Название теста:</label>
+                                <input type="text" id="title" name="title" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="description">Описание:</label>
+                                <textarea id="description" name="description" rows="3"></textarea>
+                            </div>
+                            <button type="submit" class="btn">Создать тест</button>
+                        </form>
                     </div>
-                    <div class="form-group">
-                        <label for="description">Описание:</label>
-                        <textarea id="description" name="description" rows="3"></textarea>
+
+                    <!-- Сообщение для неавторизованных -->
+                    <div class="card" id="loginPromptCard" style="display: block;">
+                        <h2>🔐 Требуется авторизация</h2>
+                        <p>Чтобы создавать тесты, пожалуйста, войдите в систему.</p>
+                        <p>Используйте кнопки в правой колонке для входа или регистрации.</p>
                     </div>
-                    <button type="submit" class="btn">Создать тест</button>
-                </form>
-            </div>
 
-            <!-- Сообщение для неавторизованных -->
-            <div class="card" id="loginPromptCard" style="display: block;">
-                <h2>🔐 Требуется авторизация</h2>
-                <p>Чтобы создавать тесты, пожалуйста, войдите в систему.</p>
-                <p>Используйте кнопки в правом верхнем углу для входа или регистрации.</p>
-            </div>
+                    <!-- Список тестов -->
+                    <div class="card">
+                        <h2>Список тестов</h2>
+                        <div id="testsList" class="tests-list">
+                            <p>Загрузка...</p>
+                        </div>
+                    </div>
+                </div>
 
-            <!-- Список тестов -->
-            <div class="card">
-                <h2>Список тестов</h2>
-                <div id="testsList" class="tests-list">
-                    <p>Загрузка...</p>
+                <!-- Режим: редактирование теста -->
+                <div id="testEditMode" style="display: none;">
+                    <div class="card">
+                        <h2 id="editTestTitle">Редактирование теста</h2>
+                        <form id="editTestForm">
+                            <div class="form-group">
+                                <label for="editTitle">Название теста:</label>
+                                <input type="text" id="editTitle" name="title" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editDescription">Описание:</label>
+                                <textarea id="editDescription" name="description" rows="3"></textarea>
+                            </div>
+                            <button type="submit" class="btn">Сохранить изменения</button>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <h3>Вопросы и ответы</h3>
+                        <div id="questionsContainer"></div>
+                        <button id="addQuestionBtn" class="btn btn-secondary">+ Добавить вопрос</button>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Режим: редактирование конкретного теста -->
-        <div id="testEditMode" style="display: none;">
-            <div class="card">
-                <h2 id="editTestTitle">Редактирование теста</h2>
-                <form id="editTestForm">
-                    <div class="form-group">
-                        <label for="editTitle">Название теста:</label>
-                        <input type="text" id="editTitle" name="title" required>
+            <!-- ПРАВАЯ КОЛОНКА - МИНИ-ПРОФИЛЬ -->
+            <div class="profile-sidebar">
+                <div class="profile-card" id="profileCard" style="display: none;">
+                    <div class="profile-avatar-container">
+                        <img id="profileAvatar" src="" class="profile-avatar" alt="" style="display: none;">
+                        <div id="profileAvatarPlaceholder" class="profile-avatar-placeholder">?</div>
+                        <div class="avatar-overlay">
+                            <label for="avatarUpload" class="avatar-upload-label">📷</label>
+                            <input type="file" id="avatarUpload" accept="image/png,image/jpeg,image/jpg" style="display: none;">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="editDescription">Описание:</label>
-                        <textarea id="editDescription" name="description" rows="3"></textarea>
+                    <div class="profile-info">
+                        <h3 id="profileName">Пользователь</h3>
+                        <p id="profileEmail" class="profile-email">email@example.com</p>
                     </div>
-                    <button type="submit" class="btn">Сохранить изменения</button>
-                </form>
-            </div>
-
-            <div class="card">
-                <h3>Вопросы и ответы</h3>
-                <div id="questionsContainer"></div>
-                <button id="addQuestionBtn" class="btn btn-secondary">+ Добавить вопрос</button>
+                    <div class="profile-actions">
+                        <button id="removeAvatarBtn" class="btn-small btn-secondary" style="display: none;">Удалить аватар</button>
+                    </div>
+                </div>
+                
+                <!-- Блок авторизации (если не авторизован) -->
+                <div class="auth-card" id="authCard">
+                    <h3>Вход в систему</h3>
+                    <div class="auth-buttons-vertical">
+                        <button class="btn">Вход</button>
+                        <button class="btn btn-secondary">Регистрация</button>
+                        <button class="btn yandex-btn">Яндекс ID</button>
+                    </div>
+                </div>
+                
+                <!-- Кнопка выхода -->
+                <div class="logout-section" id="logoutSection" style="display: none;">
+                    <button class="btn-logout">Выйти</button>
+                    <button class="btn-logout-all">Выйти из всех сессий</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Модальные окна -->
+    <!-- Модальное окно входа -->
     <div id="loginModal" class="modal" style="display: none;">
         <div class="modal-content">
-            <span class="close">&times;</span>
+            <span class="close" onclick="document.getElementById('loginModal').style.display='none'">&times;</span>
             <h2>Вход</h2>
             <form id="loginForm">
                 <div class="form-group">
@@ -115,9 +156,10 @@
         </div>
     </div>
 
+    <!-- Модальное окно регистрации -->
     <div id="registerModal" class="modal" style="display: none;">
         <div class="modal-content">
-            <span class="close">&times;</span>
+            <span class="close" onclick="document.getElementById('registerModal').style.display='none'">&times;</span>
             <h2>Регистрация</h2>
             <form id="registerForm">
                 <div class="form-group">
@@ -138,9 +180,10 @@
         </div>
     </div>
 
+    <!-- Модальное окно восстановления пароля -->
     <div id="forgotPasswordModal" class="modal" style="display: none;">
         <div class="modal-content">
-            <span class="close">&times;</span>
+            <span class="close" onclick="document.getElementById('forgotPasswordModal').style.display='none'">&times;</span>
             <h2>Восстановление пароля</h2>
             <form id="forgotPasswordForm">
                 <div class="form-group">
